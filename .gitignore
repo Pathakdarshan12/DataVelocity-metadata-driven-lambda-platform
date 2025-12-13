@@ -12,3 +12,4 @@ swiggy/dbt_internal_packages/
 __pycache__/
 *.log
 /venv/Scripts/*
+/venv/Scripts/
