@@ -19,15 +19,15 @@ COMMENT = 'This is the ADHOC-WH'
 -- ----------------------------------------------------------------------------------------------------
 CREATE DATABASE IF NOT EXISTS SWIGGY;
 USE DATABASE SWIGGY;
-CREATE SCHEMA IF NOT EXISTS BRONZE_SCH;
-CREATE SCHEMA IF NOT EXISTS SILVER_SCH;
-CREATE SCHEMA IF NOT EXISTS GOLD_SCH;
-CREATE SCHEMA IF NOT EXISTS COMMON_SCH;
+CREATE SCHEMA IF NOT EXISTS BRONZE;
+CREATE SCHEMA IF NOT EXISTS SILVER;
+CREATE SCHEMA IF NOT EXISTS GOLD;
+CREATE SCHEMA IF NOT EXISTS COMMON;
 
 -- ----------------------------------------------------------------------------------------------------
 -- Create File Format for stage files
 -- ----------------------------------------------------------------------------------------------------
-CREATE FILE FORMAT IF NOT EXISTS BRONZE_SCH.CSV_FILE_FORMAT
+CREATE FILE FORMAT IF NOT EXISTS BRONZE.CSV_FILE_FORMAT
 TYPE = 'CSV'
 COMPRESSION = 'AUTO'
 FIELD_DELIMITER = ','
@@ -39,16 +39,15 @@ NULL_IF = ('\\N');
 -- ----------------------------------------------------------------------------------------------------
 -- Create File Stage
 -- ----------------------------------------------------------------------------------------------------
-CREATE STAGE BRONZE_SCH.CSV_STG
+CREATE STAGE BRONZE.CSV_STG
 DIRECTORY = ( ENABLE = TRUE )
 COMMENT = 'THIS IS THE SNOWFLAKE INTERNAL STAGE';
--- ----------------------------------------------------------------------------------------------------
 
 -- ----------------------------------------------------------------------------------------------------
 -- Create Tag
 -- ----------------------------------------------------------------------------------------------------
 CREATE OR REPLACE TAG
-COMMON_SCH.PII_POLICY_TAG
+COMMON.PII_POLICY_TAG
 ALLOWED_VALUES 'PII','PRICE','SENSITIVE','EMAIL'
 COMMENT = 'THIS IS PII POLICY TAG OBJECT';
 
@@ -56,19 +55,17 @@ COMMENT = 'THIS IS PII POLICY TAG OBJECT';
 -- Create Masking Policy
 -- ----------------------------------------------------------------------------------------------------
 CREATE OR REPLACE MASKING POLICY
-COMMON_SCH.PII_MASKING_POLICY AS (PII_TEXT STRING)
+COMMON.PII_MASKING_POLICY AS (PII_TEXT STRING)
 RETURNS STRING ->
 TO_VARCHAR('** PII **');
 -- ----------------------------------------------------------------------------------------------------
 CREATE OR REPLACE MASKING POLICY
-COMMON_SCH.EMAIL_MASKING_POLICY AS (EMAIL_TEXT STRING)
+COMMON.EMAIL_MASKING_POLICY AS (EMAIL_TEXT STRING)
 RETURNS STRING ->
 TO_VARCHAR('** EAMIL **');
 -- ----------------------------------------------------------------------------------------------------
 CREATE OR REPLACE MASKING POLICY
-COMMON_SCH.PHONE_MASKING_POLICY AS (PHONE STRING)
+COMMON.PHONE_MASKING_POLICY AS (PHONE STRING)
 RETURNS STRING ->
 TO_VARCHAR('** PHONE **');
 -- ====================================================================================================
-
-select * from bronze_sch.location_brz;

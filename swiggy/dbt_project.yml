@@ -2,8 +2,6 @@ name: 'swiggy_pipeline'
 version: '1.0.0'
 config-version: 2
 
-# This name MUST match the profile name in profiles.yml
-# You have 'swiggy' in profiles.yml, so use 'swiggy' here
 profile: 'swiggy'
 
 model-paths: ["models"]
@@ -21,30 +19,21 @@ clean-targets:
 # Configure materialization and schema for each layer
 models:
   swiggy_pipeline:
-    # Bronze layer - raw data from sources
     bronze:
       +materialized: table
       +schema: bronze
       +tags: ['bronze', 'raw']
-
-    # Silver layer - cleaned and validated
     silver:
       +materialized: table
       +schema: silver
       +tags: ['silver', 'cleansed']
-
-    # Gold layer - business ready dimensional models
     gold:
       +materialized: table
       +schema: gold
       +tags: ['gold', 'analytics']
-
-      # Dimension tables with SCD Type 2
       dimensions:
         +materialized: table
         +tags: ['dimension', 'scd2']
-
-      # Fact tables with incremental loads
       facts:
         +materialized: incremental
         +on_schema_change: 'append_new_columns'
