@@ -1,0 +1,6 @@
+DeliveryAgentID,Name,Phone,VehicleType,LocationID,Status,Gender,Rating,CreatedDate,ModifiedDate
+6,Faiyaz Mall,+910091445976,Motorbike,1,Active,Male,3.2,2024-01-05 15:44:39.078841,2024-05-02 15:44:39.078841
+7,Samiha Sarin,09254090193,Bicycle,1,Active,Female,4.0,2023-12-25 15:44:39.078862,2024-05-21 15:44:39.078862
+8,Anika Saha,09342906685,Bicycle,1,Inactive,Female,3.2,2023-12-13 15:44:39.078883,2024-03-18 15:44:39.078883
+9,Nehmat Gade,02395381999,Bicycle,1,Active,Male,4.5,2023-12-01 15:44:39.078904,2024-03-03 15:44:39.078904
+10,Kiara Badal,+917858979680,Motorbike,1,Active,Female,3.7,2023-11-27 15:44:39.078925,2024-03-25 15:44:39.078925

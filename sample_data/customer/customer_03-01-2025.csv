@@ -1,0 +1,4 @@
+"CustomerID","Name","Mobile","Email","LoginByUsing","Gender","DOB","Anniversary","Preferences","CreatedDate","ModifiedDate"
+"6","Jiya Ram","7843078528","jiyaram@hotmail.com","Other_EMail","Corporate","1992-09-13","2015-09-13","{""FoodPreference"": ""Non-Veg"", ""CuisineTypes"": [""Mexican""]}","2022-06-09T13:01:03.186642","2024-08-11T13:01:03.186643"
+"7","Tushar Rao","8132578638","tusharrao@outlook.com","Other_EMail","Male","1993-07-25","2016-07-25","{""FoodPreference"": ""Veg"", ""CuisineTypes"": [""Chinese"", ""Thai"", ""Italian""]}","2022-10-02T13:01:03.186664","2024-07-09T13:01:03.186665"
+"8","Shamik Shenoy","7482471462","shamikshenoy@gmail.com","GMail_Account","Other","2003-09-02","2026-09-02","{""FoodPreference"": ""Veg"", ""CuisineTypes"": [""Chinese""]}","2022-01-15T13:01:03.186687","2024-07-18T13:01:03.186688"

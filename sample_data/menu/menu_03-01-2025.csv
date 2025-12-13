@@ -1,0 +1,9 @@
+MenuID,RestaurantID,ItemName,Description,Price,Category,Availability,ItemType,CreatedDate,ModifiedDate
+13,6,Rasam,Spicy tamarind soup with tomatoes and spices.,39,South Indian,True,Non-Veg,2023-11-03 14:21:17.674484,2024-07-03 14:21:17.674510
+14,7,Rasam,Spicy tamarind soup with tomatoes an spices.,174,South Indian,True,Veg,2023-11-03 14:21:17.674538,2024-06-03 14:21:17.674564
+15,6,Idli,Steamed rice cakes served with coconut chutney.,61,South Indian,True,Vegan,2023-11-03 14:21:17.674592,2024-08-03 14:21:17.674618
+16,8,Rasam,Spicy tamarind soup with tomatoes and spices.,57,South Indian,True,Gluten-Free,2023-11-03 14:21:17.674646,2024-07-03 14:21:17.674672
+17,6,Sambar Rice,"Rice cooked with lentils and vegetables, served with sambar.",99,South Indian,True,Gluten-Free,2023-11-03 14:21:17.674703,2024-06-03 14:21:17.674729
+18,7,Nimbu Pani,Indian lemonade made with fresh lemons and spices.,213,Beverages,True,Vegan,2023-11-03 14:21:17.674758,2024-06-03 14:21:17.674784
+19,8,Chocolate Fudge,Rich chocolate ice cream with fudge swirls.,137,Ice Cream,True,Non-Veg,2023-11-03 14:21:17.674813,2024-06-03 14:21:17.674839
+20,8,Pistachio Ice Cream,Creamy ice cream with pistachio nuts.,231,Ice Cream,True,Gluten-Free,2023-11-03 14:21:17.674868,2024-07-03 14:21:17.674894

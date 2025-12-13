@@ -1,0 +1,4 @@
+"AddressID","CustomerID","FlatNo","HouseNo","Floor","Building","Landmark","Locality","City","State","Pincode","Coordinates","PrimaryFlag","AddressType","CreatedDate","ModifiedDate"
+"6","6","49","91","6","Shanti Kunj","Next to Dilli Haat","Khan Market","New Delhi","Delhi","110062","89.9734685,1.039207","Yes","Hotel","2018-09-10T07:27:15","2018-10-08T07:27:15"
+"7","7","69","60","7","Shanti Kunj","Beside Jantar Mantar","Green Park","New Delhi","Delhi","110023","42.629980,-3.739719","Yes","Other","2019-09-05T03:11:47","2019-09-24T03:11:47"
+"8","8","32","78","4","Nehru Palace","Close to ISKCON Temple","Chandni Chowk","New Delhi","Delhi","110089","-41.198547,-179.028416","No","Hotel","2022-06-09T16:30:47","2022-07-08T16:30:47"

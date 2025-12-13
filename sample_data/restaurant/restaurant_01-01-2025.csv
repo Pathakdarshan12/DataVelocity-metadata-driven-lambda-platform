@@ -1,0 +1,4 @@
+RestaurantID,Name,CuisineType,Pricing_for_2,Restaurant_Phone,OperatingHours,LocationID,ActiveFlag,OpenStatus,Locality,Restaurant_Address,Latitude,Longitude,CreatedDate,ModifiedDate
+6,Carnatic Cafe,South Indian,600,6246571395,8:00 AM - 16:00 PM,1,Yes,Open,"Lodhi Colony, New Delhi","84-85, Meharchand Market, Lodhi Road, Near Lodhi Colony, New Delhi",28.584296,77.226613,2021-03-28 02:18:58.484116,2024-02-05 20:31:43.350854
+7,"Cocktails & Dreams, Speakeasy","Nepalese, Tibetan, Beverages",2500,6738584603,10:00 AM - 18:00 PM,1,Yes,Open,"Sector 15, Gurgaon","SCO 23, Sector 15, Gurgaon",28.45797541,77.0446267,2020-06-06 04:47:51.235628,2024-05-13 20:34:51.989615
+8,Natural Ice Cream,"Ice Cream, Desserts",400,9577412181,8:00 AM - 16:00 PM,1,Yes,Open,"Connaught Place, New Delhi","L-8, L Block, Outer Circle, Connaught Place, New Delhi",28.63444917,77.22203437,2021-09-13 21:56:23.175242,2023-12-21 20:36:30.937905

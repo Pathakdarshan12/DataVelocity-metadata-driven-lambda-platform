@@ -1,0 +1,7 @@
+MenuID,RestaurantID,ItemName,Description,Price,Category,Availability,ItemType,CreatedDate,ModifiedDate
+21,9,Pistachio Ice Cream,Creamy ice cream with pistachio nuts.,216,Ice Cream,True,Gluten-Free,2023-11-03 14:21:17.674923,2024-07-03 14:21:17.674949
+22,9,Strawberry Delight,Strawberry-flavored ice cream with real strawberries.,237,Ice Cream,True,Gluten-Free,2023-11-03 14:21:17.674977,2024-08-03 14:21:17.675003
+23,9,Masala Dosa,Crispy rice crepe filled with spiced potatoes.,85,South Indian,True,Gluten-Free,2023-11-03 14:21:17.675032,2024-06-03 14:21:17.675058
+24,9,Butter Chicken,Tender chicken cooked in a creamy tomato sauce with spices.,169,North Indian,True,Veg,2023-11-03 14:21:17.675086,2024-08-03 14:21:17.675111
+25,10,Masala Chai,Spiced tea brewed with milk and sugar.,112,Beverages,True,Non-Veg,2023-11-03 14:21:17.675139,2024-07-03 14:21:17.675165
+26,10,Paneer Tikka,Marinated paneer grilled with spices and served with mint chutney.,210,North Indian,True,Veg,2023-11-03 14:21:17.675193,2024-08-03 14:21:17.675219

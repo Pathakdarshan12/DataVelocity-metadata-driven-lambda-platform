@@ -1,0 +1,6 @@
+DeliveryAgentID,Name,Phone,VehicleType,LocationID,Status,Gender,Rating,CreatedDate,ModifiedDate
+1,Dhruv Ramaswamy,+910069648032,Scooter,1,Active,Male,4.1,2023-12-30 15:44:39.078722,2024-05-14 15:44:39.078722
+2,Dishani Setty,+913105255638,Scooter,1,Inactive,Female,4.8,2023-11-14 15:44:39.078754,2024-03-29 15:44:39.078754
+3,Mannat Chandra,9542735687,Scooter,1,Inactive,Male,5.0,2023-12-11 15:44:39.078776,2024-04-17 15:44:39.078776
+4,Sara Saran,01145253262,Motorbike,1,Inactive,Male,4.2,2023-12-07 15:44:39.078798,2024-04-17 15:44:39.078798
+5,Yasmin Contractor,08766112113,Scooter,1,Active,Male,4.9,2023-12-23 15:44:39.078820,2024-04-05 15:44:39.078820

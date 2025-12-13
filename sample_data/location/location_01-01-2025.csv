@@ -1,0 +1,6 @@
+LocationID,City,State,ZipCode,ActiveFlag,CreatedDate,ModifiedDate
+1,Delhi,Delhi,110001,Yes,2024-11-02 22:06:18
+2,Mumbai,Maharashtra,400001,No,2024-11-02 22:06:18
+3,Agra,Uttar Pradesh,282001,No,2024-11-02 22:06:18
+4,Ahmedabad,Gujarat,380001,No,2024-11-02 22:06:18
+5,Ajmer,Rajasthan,305001,No,2024-11-02 22:06:18

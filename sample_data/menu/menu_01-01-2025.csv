@@ -1,0 +1,13 @@
+MenuID,RestaurantID,ItemName,Description,Price,Category,Availability,ItemType,CreatedDate,ModifiedDate
+1,1,Dal Makhani,Slow-cooked black lentils with butter and cream.,156,North Indian,True,Vegan,2023-11-03 14:21:17.671187,2024-06-03 14:21:17.673806
+2,1,Paneer Tikka,Marinated paneer grilled with spices and served with mint chutney.,154,North Indian,True,Vegan,2023-11-03 14:21:17.673857,2024-08-03 14:21:17.673888
+3,2,Uttapam,Thick rice pancake topped with tomatoes and onions.,115,South Indian,True,Veg,2023-11-03 14:21:17.673921,2024-08-03 14:21:17.673950
+4,2,Lassi,"Yogurt-based drink, sweet or salty.",190,Beverages,True,Non-Veg,2023-11-03 14:21:17.673980,2024-07-03 14:21:17.674007
+5,2,Coconut Water,Fresh coconut water served chilled.,153,Beverages,True,Vegan,2023-11-03 14:21:17.674037,2024-06-03 14:21:17.674067
+6,2,Cold Coffee,Iced coffee blended with milk and sugar.,113,Cafe,True,Veg,2023-11-03 14:21:17.674097,2024-08-03 14:21:17.674123
+7,2,Fresh Lime Soda,Refreshing soda with lime juice and mint.,220,Beverages,True,Veg,2023-11-03 14:21:17.674152,2024-08-03 14:21:17.674178
+8,3,Dal Makhani,Slow-cooked black lentils with butter and cream.,213,North Indian,True,Gluten-Free,2023-11-03 14:21:17.674208,2024-06-03 14:21:17.674234
+9,4,Spaghetti Carbonara,"Pasta with egg, cheese, pancetta, and pepper.",480,Italian,True,Vegan,2023-11-03 14:21:17.674266,2024-08-03 14:21:17.674292
+10,5,Tiramisu,Coffee-flavored Italian dessert.,418,Italian,True,Non-Veg,2023-11-03 14:21:17.674321,2024-06-03 14:21:17.674347
+11,5,Tiramisu,Coffee-flavored Italian dessert.,482,Italian,True,Gluten-Free,2023-11-03 14:21:17.674375,2024-07-03 14:21:17.674401
+12,5,Stroganoff,Tender cooked in a creamy sauce.,561,Continental,True,Non-Veg,2023-11-03 14:21:17.674429,2024-06-03 14:21:17.674455
