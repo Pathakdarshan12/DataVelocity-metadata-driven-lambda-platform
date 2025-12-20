@@ -1,6 +1,0 @@
-"AddressID","CustomerID","FlatNo","HouseNo","Floor","Building","Landmark","Locality","City","State","Pincode","Coordinates","PrimaryFlag","AddressType"
-"1","1","47","93","9","Mohan Residency","Near Lotus Temple","Saket","New Delhi","Delhi","110085","79.0289505,100.112924","Yes","Other"
-"2","2","3","94","3","Parliament View Apartments","Near Qutub Minar","Moti Bagh","New Delhi","Delhi","110060","-26.2241145,175.294051","Yes","Other"
-"3","3","13","92","9","Raj Mahal","Beside Jantar Mantar","South Extension","New Delhi","Delhi","110099","70.686411,-134.620282","Yes","Work"
-"4","4","11","40","10","Golden Heights","Next to Dilli Haat","Pitampura","New Delhi","Delhi","110061","-88.557585,-124.539244","Yes","Home"
-"5","5","83","96","5","Aakash Ganga","Close to Connaught Place","South Extension","New Delhi","Delhi","110065","-13.726491,26.803470","No","Other"

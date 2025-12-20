@@ -1,9 +1,0 @@
-RestaurantID,ItemName,Description,Price,Category,Availability,ItemType
-6,Rasam,Spicy tamarind soup with tomatoes and spices.,39,South Indian,True,Non-Veg
-7,Rasam,Spicy tamarind soup with tomatoes an spices.,174,South Indian,True,Veg
-6,Idli,Steamed rice cakes served with coconut chutney.,61,South Indian,True,Vegan
-8,Rasam,Spicy tamarind soup with tomatoes and spices.,57,South Indian,True,Gluten-Free
-6,Sambar Rice,"Rice cooked with lentils and vegetables, served with sambar.",99,South Indian,True,Gluten-Free
-7,Nimbu Pani,Indian lemonade made with fresh lemons and spices.,213,Beverages,True,Vegan
-8,Chocolate Fudge,Rich chocolate ice cream with fudge swirls.,137,Ice Cream,True,Non-Veg
-8,Pistachio Ice Cream,Creamy ice cream with pistachio nuts.,231,Ice Cream,True,Gluten-Free
