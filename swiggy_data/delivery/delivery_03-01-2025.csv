@@ -1,0 +1,5 @@
+DeliveryID,OrderID,DeliveryAgentID,DeliveryStatus,EstimatedTime,DeliveryAddress,DeliveryDate,CreatedDate,ModifiedDate
+13,13,8,Delivered,67 minutes,9,2024-03-30 00:24:35.667731,2024-03-22 16:02:41.465124,2024-08-25 16:02:41.465126
+14,14,9,Delivered,55 minutes,9,2024-03-26 16:24:35.667846,2024-05-25 16:02:41.465568,
+15,15,10,Canceled,-1 minutes,10,2024-10-11 09:24:35.668203,2024-07-01 16:02:41.466036,2024-07-10 16:02:41.466038
+16,16,10,Delivered,90 minutes,10,2023-12-21 19:24:35.668393,2024-05-16 16:02:41.466494,

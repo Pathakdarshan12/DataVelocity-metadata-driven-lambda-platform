@@ -1,0 +1,6 @@
+DeliveryAgentID,Name,Phone,VehicleType,LocationID,Status,Gender,Rating
+1,Dhruv Ramaswamy,+910069648032,Scooter,1,Active,Male,4.1
+2,Dishani Setty,+913105255638,Scooter,1,Inactive,Female,4.8
+3,Mannat Chandra,9542735687,Scooter,1,Inactive,Male,5.0
+4,Sara Saran,01145253262,Motorbike,1,Inactive,Male,4.2
+5,Yasmin Contractor,08766112113,Scooter,1,Active,Male,4.9
