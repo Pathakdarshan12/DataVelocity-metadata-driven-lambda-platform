@@ -14,3 +14,4 @@ __pycache__/
 /venv/Scripts/*
 /venv/Scripts/
 .env
+/venv/Scripts/dotenv.exe
