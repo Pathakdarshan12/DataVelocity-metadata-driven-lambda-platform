@@ -12,44 +12,77 @@ USE WAREHOUSE ADHOC_WH;
 -- ----------------------------------------------------------------------------------------------------
 CREATE OR REPLACE TABLE BRONZE.RESTAURANT_BRZ (
     RESTAURANT_BRZ_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-    NAME STRING ,                                                             -- RESTAURANT NAME, REQUIRED FIELD
-    CUISINETYPE STRING,                                                       -- TYPE OF CUISINE OFFERED
-    PRICING_FOR_2 STRING,                                                     -- PRICING FOR TWO PEOPLE AS TEXT
-    RESTAURANT_PHONE STRING WITH TAG (COMMON.PII_POLICY_TAG = 'SENSITIVE'),   -- PHONE NUMBER AS TEXT
-    OPERATINGHOURS STRING,                                                    -- RESTAURANT OPERATING HOURS
-    LOCATION_ID STRING ,                                                       -- LOCATION ID, DEFAULT AS TEXT
-    ACTIVEFLAG STRING ,                                                       -- ACTIVE STATUS
-    OPENSTATUS STRING ,                                                       -- OPEN STATUS
-    LOCALITY STRING,                                                          -- LOCALITY AS TEXT
-    RESTAURANT_ADDRESS STRING,                                                -- ADDRESS AS TEXT
-    LATITUDE STRING,                                                          -- LATITUDE AS TEXT FOR PRECISION
-    LONGITUDE STRING,                                                         -- LONGITUDE AS TEXT FOR PRECISION
-    BATCH_ID STRING,
-    CREATED_AT STRING,                                                       -- RECORD CREATION DATE
-    UPDATED_AT STRING                                                   -- LAST MODIFIED DATE
+    FSSAI_REGISTRATION_NO INTEGER,
+    RESTAURANT_NAME VARCHAR ,
+    CUISINE_TYPE VARCHAR,
+    PRICING_FOR_TWO VARCHAR,
+    RESTAURANT_PHONE VARCHAR WITH TAG (COMMON.PII_POLICY_TAG = 'SENSITIVE'),
+    OPERATING_HOURS VARCHAR,
+    LOCATION_ID INTEGER,
+    ACTIVE_FLAG VARCHAR,
+    OPEN_STATUS VARCHAR,
+    LOCALITY VARCHAR,
+    RESTAURANT_ADDRESS VARCHAR,
+    LATITUDE NUMBER(9,6),
+    LONGITUDE NUMBER(9,6),
+
+    -- RAW COLUMNS
+    FSSAI_REGISTRATION_NO_RAW VARCHAR,
+    RESTAURANT_NAME_RAW VARCHAR,
+    CUISINE_TYPE_RAW VARCHAR,
+    PRICING_FOR_TWO_RAW VARCHAR,
+    RESTAURANT_PHONE_RAW VARCHAR WITH TAG (COMMON.PII_POLICY_TAG = 'SENSITIVE'),
+    OPERATING_HOURS_RAW VARCHAR,
+    LOCATION_ID_RAW VARCHAR,
+    ACTIVE_FLAG_RAW VARCHAR,
+    OPEN_STATUS_RAW VARCHAR,
+    LOCALITY_RAW VARCHAR,
+    RESTAURANT_ADDRESS_RAW VARCHAR,
+    LATITUDE_RAW VARCHAR,
+    LONGITUDE_RAW VARCHAR,
+
+    -- AUDIT COLUMNS
+    INGEST_RUN_ID STRING,
+    CREATED_AT STRING,
+    UPDATED_AT STRING
 )
 COMMENT = 'THIS IS THE RESTAURANT STAGE/RAW TABLE WHERE DATA WILL BE COPIED FROM INTERNAL STAGE USING COPY COMMAND. THIS IS AS-IS DATA REPRESETATION FROM THE SOURCE LOCATION. ALL THE COLUMNS ARE TEXT DATA TYPE EXCEPT THE AUDIT COLUMNS THAT ARE ADDED FOR TRACEABILITY.';
 
+
+-- CREATING SEQUNCE TO GENERATE INGEST_RUN_ID
+CREATE OR REPLACE SEQUENCE SEQ_RESTAURANT_INGEST_RUN_ID START = 1 INCREMENT = 1;
+-- ----------------------------------------------------------------------------------------------------
+-- CREATE RESTAURANT_LOAD_ERROR
+-- ----------------------------------------------------------------------------------------------------
+CREATE OR REPLACE TABLE BRONZE.RESTAURANT_LOAD_ERROR (
+    error_id INTEGER IDENTITY(1,1) PRIMARY KEY,
+    ingest_run_id INTEGER,
+    error_type VARCHAR(100) NOT NULL,
+    error_column VARCHAR(200),
+    error_description VARCHAR(5000),
+    created_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+);
 -- ----------------------------------------------------------------------------------------------------
 -- CREATE RESTAURANT_SLV
 -- ----------------------------------------------------------------------------------------------------
 CREATE OR REPLACE TABLE SILVER.RESTAURANT_SLV (
-    RESTAURANT_SLV_ID INTEGER PRIMARY KEY AUTOINCREMENT,              -- PRIMARY KEY WITH AUTO-INCREMENT
-    NAME STRING(100),                                   -- RESTAURANT NAME, REQUIRED FIELD
-    CUISINE_TYPE STRING,                                         -- TYPE OF CUISINE OFFERED
-    PRICING_FOR_TWO NUMBER(10, 2),                               -- PRICING FOR TWO PEOPLE, UP TO 10 DIGITS WITH 2 DECIMAL PLACES
-    RESTAURANT_PHONE STRING(15) WITH TAG (COMMON.PII_POLICY_TAG = 'SENSITIVE'),                                 -- PHONE NUMBER, SUPPORTS 10-DIGIT OR INTERNATIONAL FORMAT
-    OPERATING_HOURS STRING(100),                                  -- RESTAURANT OPERATING HOURS
-    LOCATION_ID NUMBER,                                       -- REFERENCE ID FOR LOCATION, DEFAULTED TO 1
-    ACTIVE_FLAG STRING(10),                                      -- INDICATES IF THE RESTAURANT IS ACTIVE
-    OPEN_STATUS STRING(10),                                      -- INDICATES IF THE RESTAURANT IS CURRENTLY OPEN
-    LOCALITY STRING(100),                                        -- LOCALITY OF THE RESTAURANT
-    RESTAURANT_ADDRESS STRING,                                   -- ADDRESS OF THE RESTAURANT, SUPPORTS LONGER TEXT
-    LATITUDE NUMBER(9,6),                                       -- LATITUDE WITH 6 DECIMAL PLACES FOR PRECISION
-    LONGITUDE NUMBER(9,6),                                      -- LONGITUDE WITH 6 DECIMAL PLACES FOR PRECISION
-    BATCH_ID STRING,
-    CREATED_AT TIMESTAMP_TZ,                                     -- RECORD CREATION DATE
-    UPDATED_AT TIMESTAMP_TZ                                 -- LAST MODIFIED DATE, ALLOWS NULL IF NOT MODIFIEDP
+    RESTAURANT_SLV_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    FSSAI_REGISTRATION_NO INTEGER,
+    RESTAURANT_NAME VARCHAR(100),
+    CUISINE_TYPE VARCHAR,
+    PRICING_FOR_TWO NUMBER(10, 2),
+    RESTAURANT_PHONE STRING(15) WITH TAG (COMMON.PII_POLICY_TAG = 'SENSITIVE'),
+    OPERATING_HOURS VARCHAR(100),
+    LOCATION_ID VARCHAR,
+    ACTIVE_FLAG VARCHAR(10),
+    OPEN_STATUS VARCHAR(10),
+    LOCALITY VARCHAR(100),
+    RESTAURANT_ADDRESS VARCHAR,
+    LATITUDE NUMBER(9,6),
+    LONGITUDE NUMBER(9,6),
+    BATCH_ID VARCHAR,
+    CREATED_AT TIMESTAMP_TZ,
+    UPDATED_AT TIMESTAMP_TZ
 )
 COMMENT = 'RESTAURANT ENTITY UNDER CLEAN SCHEMA WITH APPROPRIATE DATA TYPE UNDER CLEAN SCHEMA LAYER, DATA IS POPULATED USING MERGE STATEMENT FROM THE STAGE LAYER LOCATION TABLE. THIS TABLE DOES NOT SUPPORT SCD2';
 
@@ -57,132 +90,238 @@ COMMENT = 'RESTAURANT ENTITY UNDER CLEAN SCHEMA WITH APPROPRIATE DATA TYPE UNDER
 -- CREATE RESTAURANT_GLD
 -- ----------------------------------------------------------------------------------------------------
 CREATE OR REPLACE TABLE GOLD.DIM_RESTAURANT (
-    RESTAURANT_ID NUMBER PRIMARY KEY,                   -- RESTAURANT ID WITHOUT AUTO-INCREMENT
-    NAME STRING(100),                       -- RESTAURANT NAME
-    CUISINE_TYPE STRING,                    -- TYPE OF CUISINE OFFERED
-    PRICING_FOR_TWO NUMBER(10, 2),          -- PRICING FOR TWO PEOPLE
-    RESTAURANT_PHONE STRING(15) WITH TAG (COMMON.PII_POLICY_TAG = 'SENSITIVE'),            -- RESTAURANT PHONE NUMBER
-    OPERATING_HOURS STRING(100),            -- RESTAURANT OPERATING HOURS
-    LOCATION_ID NUMBER,                  -- FOREIGN KEY REFERENCE TO LOCATION
-    ACTIVE_FLAG STRING(10),                 -- INDICATES IF THE RESTAURANT IS ACTIVE
-    OPEN_STATUS STRING(10),                 -- INDICATES IF THE RESTAURANT IS CURRENTLY OPEN
-    LOCALITY STRING(100),                   -- LOCALITY OF THE RESTAURANT
-    RESTAURANT_ADDRESS STRING,              -- FULL ADDRESS OF THE RESTAURANT
-    LATITUDE NUMBER(9, 6),                  -- LATITUDE FOR THE RESTAURANT'S LOCATION
-    LONGITUDE NUMBER(9, 6),                 -- LONGITUDE FOR THE RESTAURANT'S LOCATION
-    BATCH_ID STRING,
-    STATUS BOOLEAN,                 -- INDICATES WHETHER THE RECORD IS THE CURRENT VERSION
-    EFF_START_DATE TIMESTAMP_TZ,            -- EFFECTIVE START DATE FOR THE RECORD
-    EFF_END_DATE TIMESTAMP_TZ            -- EFFECTIVE END DATE FOR THE RECORD (NULL IF ACTIVE)
+    RESTAURANT_ID INTEGER PRIMARY KEY,
+    FSSAI_REGISTRATION_NO INTEGER,
+    RESTAURANT_NAME VARCHAR(100),
+    CUISINE_TYPE VARCHAR,
+    PRICING_FOR_TWO NUMBER(10, 2),
+    RESTAURANT_PHONE VARCHAR(15) WITH TAG (COMMON.PII_POLICY_TAG = 'SENSITIVE'),
+    OPERATING_HOURS VARCHAR(100),
+    LOCATION_ID NUMBER,
+    ACTIVE_FLAG VARCHAR(10),
+    OPEN_STATUS VARCHAR(10),
+    LOCALITY VARCHAR(100),
+    RESTAURANT_ADDRESS VARCHAR,
+    LATITUDE NUMBER(9, 6),
+    LONGITUDE NUMBER(9, 6),
+    BATCH_ID VARCHAR,
+    STATUS VARCHAR(10) DEFAULT 'ACTIVE',
+    EFF_START_DT TIMESTAMP_TZ,
+    EFF_END_DT TIMESTAMP_TZ,
+    CREATED_AT TIMESTAMP_TZ(9) DEFAULT CURRENT_TIMESTAMP(),
+    UPDATED_AT TIMESTAMP_TZ(9) DEFAULT CURRENT_TIMESTAMP()
 )
 COMMENT = 'DIMENSIONAL TABLE FOR RESTAURANT ENTITY WITH HASH KEYS AND SCD ENABLED.';
 
 -- =====================================================
 -- PROCEDURE 1: STAGE TO BRONZE
 -- =====================================================
-CREATE OR REPLACE PROCEDURE BRONZE.SP_RESTAURANT_STAGE_TO_BRONZE(
-    P_BATCH_ID STRING,
-    P_FILE_PATH STRING
-)
+CREATE OR REPLACE PROCEDURE BRONZE.SP_RESTAURANT_STAGE_TO_BRONZE(P_PIPELINE_NAME VARCHAR, P_FILE_NAME VARCHAR)
 RETURNS VARIANT
 LANGUAGE SQL
+EXECUTE AS OWNER
 AS
 $$
 DECLARE
-    v_rows_inserted INTEGER DEFAULT 0;
+    V_ROWS_INSERTED INTEGER DEFAULT 0;
+    V_INGEST_RUN_ID NUMBER DEFAULT 0;
+    V_ERROR_MESSAGE VARCHAR(5000);
+    V_START_TIME TIMESTAMP_TZ(9);
+    V_END_TIME TIMESTAMP_TZ(9);
+    V_EXECUTION_DURATION INTEGER;
+    V_SOURCE_LOCATION VARCHAR;
+    V_FILE_FORMAT VARCHAR;
+    V_FILE_PATH VARCHAR;
 BEGIN
+    V_START_TIME := CURRENT_TIMESTAMP();
+
+    -- GET PIPELINE CONFIGURATION
+    SELECT SOURCE_LOCATION, FILE_FORMAT
+    INTO :V_SOURCE_LOCATION, :V_FILE_FORMAT
+    FROM COMMON.IMPORT_CONFIGURATION
+    WHERE PIPELINE_NAME = :P_PIPELINE_NAME;
+
+    -- Construct file path
+    V_FILE_PATH := V_SOURCE_LOCATION || P_FILE_NAME;
+
+    -- Start explicit transaction
+    BEGIN TRANSACTION;
+
     -- CREATE TEMP TABLE
     CREATE OR REPLACE TEMPORARY TABLE TEMP_RESTAURANT_LOAD(
-        NAME STRING,
-        CUISINETYPE STRING,
-        PRICING_FOR_2 STRING,
+        RESTAURANT_NAME STRING,
+        FSSAI_REGISTRATION_NO INTEGER,
+        CUISINE_TYPE STRING,
+        PRICING_FOR_TWO STRING,
         RESTAURANT_PHONE STRING,
-        OPERATINGHOURS STRING,
+        OPERATING_HOURS STRING,
         LOCATION_ID STRING,
-        ACTIVEFLAG STRING,
-        OPENSTATUS STRING,
+        ACTIVE_FLAG STRING,
+        OPEN_STATUS STRING,
         LOCALITY STRING,
         RESTAURANT_ADDRESS STRING,
         LATITUDE STRING,
         LONGITUDE STRING
     );
 
-    -- Copy data from stage to temp table
+    -- Copy data from stage
     EXECUTE IMMEDIATE
     '
-        COPY INTO TEMP_RESTAURANT_LOAD (
-            NAME, CUISINETYPE, PRICING_FOR_2, RESTAURANT_PHONE, OPERATINGHOURS,
-            LOCATION_ID, ACTIVEFLAG, OPENSTATUS, LOCALITY, RESTAURANT_ADDRESS,
-            LATITUDE, LONGITUDE
-        )
-        FROM (
-            SELECT
-                $1::STRING AS NAME,
-                $2::STRING AS CUISINETYPE,
-                $3::STRING AS PRICING_FOR_2,
-                $4::STRING AS RESTAURANT_PHONE,
-                $5::STRING AS OPERATINGHOURS,
-                $6::STRING AS LOCATION_ID,
-                $7::STRING AS ACTIVEFLAG,
-                $8::STRING AS OPENSTATUS,
-                $9::STRING AS LOCALITY,
-                $10::STRING AS RESTAURANT_ADDRESS,
-                $11::STRING AS LATITUDE,
-                $12::STRING AS LONGITUDE
-            FROM ' || P_FILE_PATH || '
-        )
-        FILE_FORMAT = (FORMAT_NAME = ''BRONZE.CSV_FILE_FORMAT'')
-        ON_ERROR = ABORT_STATEMENT
+    COPY INTO TEMP_RESTAURANT_LOAD(
+        FSSAI_REGISTRATION_NO, RESTAURANT_NAME, CUISINE_TYPE, PRICING_FOR_TWO, RESTAURANT_PHONE, OPERATING_HOURS,
+        LOCATION_ID, ACTIVE_FLAG, OPEN_STATUS, LOCALITY, RESTAURANT_ADDRESS,
+        LATITUDE, LONGITUDE)
+    FROM (
+        SELECT
+            $1::STRING AS FSSAI_REGISTRATION_NO,
+            $2::STRING AS RESTAURANT_NAME,
+            $3::STRING AS CUISINE_TYPE,
+            $4::STRING AS PRICING_FOR_TWO,
+            $5::STRING AS RESTAURANT_PHONE,
+            $6::STRING AS OPERATING_HOURS,
+            $7::STRING AS LOCATION_ID,
+            $8::STRING AS ACTIVE_FLAG,
+            $9::STRING AS OPEN_STATUS,
+            $10::STRING AS LOCALITY,
+            $11::STRING AS RESTAURANT_ADDRESS,
+            $12::STRING AS LATITUDE,
+            $13::STRING AS LONGITUDE
+        FROM ''' || V_FILE_PATH || '''
+    )
+    FILE_FORMAT = (FORMAT_NAME = ''' || V_FILE_FORMAT || ''')
+    ON_ERROR = ABORT_STATEMENT
     ';
+
+    -- Get row count
+    SELECT COUNT(*) INTO :V_ROWS_INSERTED FROM BRONZE.TEMP_RESTAURANT_LOAD;
+
+    -- Validate data loaded
+    IF (V_ROWS_INSERTED = 0) THEN
+        ROLLBACK;
+        DROP TABLE IF EXISTS TEMP_RESTAURANT_LOAD;
+        RETURN OBJECT_CONSTRUCT(
+            'STATUS', 'FAILED',
+            'ERROR', 'No records loaded from file',
+            'FILE_PATH', P_FILE_NAME,
+            'ROWS_INSERTED', 0,
+            'INGEST_RUN_ID', 0
+        );
+    END IF;
+
+    -- Consume sequence
+    SELECT SWIGGY.BRONZE.SEQ_RESTAURANT_INGEST_RUN_ID.NEXTVAL INTO :V_INGEST_RUN_ID;
 
     -- Insert into bronze table
     INSERT INTO BRONZE.RESTAURANT_BRZ (
-        NAME, CUISINETYPE, PRICING_FOR_2, RESTAURANT_PHONE, OPERATINGHOURS,
-        LOCATION_ID, ACTIVEFLAG, OPENSTATUS, LOCALITY, RESTAURANT_ADDRESS,
-        LATITUDE, LONGITUDE, BATCH_ID, CREATED_AT, UPDATED_AT
-    )
-    SELECT
-        NAME,
-        CUISINETYPE,
-        PRICING_FOR_2,
+        FSSAI_REGISTRATION_NO,
+        RESTAURANT_NAME,
+        CUISINE_TYPE,
+        PRICING_FOR_TWO,
         RESTAURANT_PHONE,
-        OPERATINGHOURS,
+        OPERATING_HOURS,
         LOCATION_ID,
-        ACTIVEFLAG,
-        OPENSTATUS,
+        ACTIVE_FLAG,
+        OPEN_STATUS,
         LOCALITY,
         RESTAURANT_ADDRESS,
         LATITUDE,
         LONGITUDE,
-        :P_BATCH_ID,
+        FSSAI_REGISTRATION_NO_RAW,
+        RESTAURANT_NAME_RAW,
+        CUISINE_TYPE_RAW,
+        PRICING_FOR_TWO_RAW,
+        RESTAURANT_PHONE_RAW,
+        OPERATING_HOURS_RAW,
+        LOCATION_ID_RAW,
+        ACTIVE_FLAG_RAW,
+        OPEN_STATUS_RAW,
+        LOCALITY_RAW,
+        RESTAURANT_ADDRESS_RAW,
+        LATITUDE_RAW,
+        LONGITUDE_RAW,
+        INGEST_RUN_ID, CREATED_AT, UPDATED_AT
+    )
+    SELECT
+        TRY_TO_NUMBER(FSSAI_REGISTRATION_NO),
+        TO_VARCHAR(RESTAURANT_NAME),
+        TO_VARCHAR(CUISINE_TYPE),
+        TRY_TO_NUMBER(PRICING_FOR_TWO),
+        TRY_TO_NUMBER(RESTAURANT_PHONE),
+        TRIM(OPERATING_HOURS),
+        TRY_TO_NUMBER(LOCATION_ID),
+        TO_VARCHAR(ACTIVE_FLAG),
+        TO_VARCHAR(OPEN_STATUS),
+        TO_VARCHAR(LOCALITY),
+        TO_VARCHAR(RESTAURANT_ADDRESS),
+        TRY_TO_NUMBER(LATITUDE,9,6),
+        TRY_TO_NUMBER(LONGITUDE,9,6),
+        FSSAI_REGISTRATION_NO,
+        RESTAURANT_NAME,
+        CUISINE_TYPE,
+        PRICING_FOR_TWO,
+        RESTAURANT_PHONE,
+        OPERATING_HOURS,
+        LOCATION_ID,
+        ACTIVE_FLAG,
+        OPEN_STATUS,
+        LOCALITY,
+        RESTAURANT_ADDRESS,
+        LATITUDE,
+        LONGITUDE,
+        :V_INGEST_RUN_ID,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
     FROM TEMP_RESTAURANT_LOAD;
 
-    -- Get row count
-    SELECT COUNT(*) INTO :v_rows_inserted FROM TEMP_RESTAURANT_LOAD;
+    -- Commit transaction
+    COMMIT;
 
-    -- Drop temp table
-    DROP TABLE IF EXISTS TEMP_RESTAURANT_LOAD;
+    -- Cleanup
+    DROP TABLE IF EXISTS BRONZE.TEMP_RESTAURANT_LOAD;
 
-    RETURN ARRAY_CONSTRUCT(
-            'SUCCESSFUL',
-            v_rows_inserted
-        );
+    V_END_TIME := CURRENT_TIMESTAMP();
+    V_EXECUTION_DURATION := DATEDIFF(SECOND, V_START_TIME, V_END_TIME);
+
+    RETURN OBJECT_CONSTRUCT(
+        'STATUS', 'SUCCESS',
+        'MESSAGE', 'Data loaded successfully with transaction',
+        'FILE_PATH', V_FILE_PATH,
+        'ROWS_INSERTED', V_ROWS_INSERTED,
+        'INGEST_RUN_ID', V_INGEST_RUN_ID,
+        'EXECUTION_TIME_SEC', V_EXECUTION_DURATION
+    );
 
 EXCEPTION
     WHEN OTHER THEN
-        RETURN ARRAY_CONSTRUCT(
-            'FAILED',
-            v_rows_inserted
+        -- Rollback everything including sequence consumption
+        ROLLBACK;
+
+        V_ERROR_MESSAGE := SQLERRM;
+        V_END_TIME := CURRENT_TIMESTAMP();
+        V_EXECUTION_DURATION := DATEDIFF(SECOND, V_START_TIME, V_END_TIME);
+
+        -- Cleanup
+        DROP TABLE IF EXISTS TEMP_RESTAURANT_LOAD;
+
+        RETURN OBJECT_CONSTRUCT(
+            'STATUS', 'FAILED',
+            'ERROR', V_ERROR_MESSAGE,
+            'FILE_PATH', V_FILE_PATH,
+            'ROWS_INSERTED', 0,
+            'INGEST_RUN_ID', 0,
+            'EXECUTION_TIME_SEC', V_EXECUTION_DURATION,
+            'NOTE', 'Transaction rolled back - no sequence consumed'
         );
 END;
 $$;
 
+CALL BRONZE.SP_RESTAURANT_STAGE_TO_BRONZE('RESTAURANT_PIPELINE', 'restaurant_01-01-2025.csv');
 -- =====================================================
 -- PROCEDURE 2: BRONZE TO SILVER
 -- =====================================================
 CREATE OR REPLACE PROCEDURE SILVER.SP_RESTAURANT_BRONZE_TO_SILVER(
+    P_PIPELINE_NAME STRING,
+    P_INGEST_RUN_ID INTEGER,
     P_BATCH_ID STRING
 )
 RETURNS VARIANT
@@ -192,83 +331,239 @@ $$
 DECLARE
     V_ROWS_INSERTED INTEGER DEFAULT 0;
     V_ROWS_UPDATED INTEGER DEFAULT 0;
+    v_bronze_table VARCHAR(200);
+    v_load_error_table VARCHAR(200);
+    v_stage_table VARCHAR(200);
+    v_silver_table VARCHAR(200);
+
+    v_bronze_row_count INTEGER DEFAULT 0;
+    v_valid_row_count INTEGER DEFAULT 0;
+    v_invalid_row_count INTEGER DEFAULT 0;
+    v_silver_row_count INTEGER DEFAULT 0;
+    v_start_time TIMESTAMP_TZ(9);
+    v_end_time TIMESTAMP_TZ(9);
+    v_execution_duration INTEGER;
+    v_error_message VARCHAR(5000);
+    v_sql VARCHAR(10000);
+    v_dq_result VARIANT;
+    v_dq_result_status VARCHAR(50);
+    v_run_status VARCHAR(50);
+
 BEGIN
-    -- Merge data from bronze to silver (no SCD2 at silver layer)
-    MERGE INTO SILVER.RESTAURANT_SLV AS TGT
-    USING (
-        SELECT
-            RESTAURANT_BRZ_ID,
-            NAME,
-            CUISINETYPE AS CUISINE_TYPE,
-            TRY_CAST(PRICING_FOR_2 AS NUMBER(10, 2)) AS PRICING_FOR_TWO,
-            RESTAURANT_PHONE,
-            TRIM(OPERATINGHOURS) AS OPERATING_HOURS,
-            TRY_CAST(LOCATION_ID AS NUMBER) AS LOCATION_ID,
-            CASE
-                WHEN TRIM(LOWER(ACTIVEFLAG)) = 'yes' THEN TRUE ELSE FALSE
-            END AS ACTIVE_FLAG,
-            OPENSTATUS AS OPEN_STATUS,
-            LOCALITY,
-            RESTAURANT_ADDRESS,
-            TRY_CAST(LATITUDE AS NUMBER(9, 6)) AS LATITUDE,
-            TRY_CAST(LONGITUDE AS NUMBER(9, 6)) AS LONGITUDE,
-            BATCH_ID,
-            TRY_CAST(CREATED_AT AS TIMESTAMP_TZ) AS CREATED_AT,
-            TRY_CAST(UPDATED_AT AS TIMESTAMP_TZ) AS UPDATED_AT
-        FROM BRONZE.RESTAURANT_BRZ
-        WHERE BATCH_ID = :P_BATCH_ID
-    ) AS SRC
-    ON TGT.RESTAURANT_SLV_ID = SRC.RESTAURANT_BRZ_ID
 
-    WHEN MATCHED THEN
-        UPDATE SET
-            TGT.NAME = SRC.NAME,
-            TGT.CUISINE_TYPE = SRC.CUISINE_TYPE,
-            TGT.PRICING_FOR_TWO = SRC.PRICING_FOR_TWO,
-            TGT.RESTAURANT_PHONE = SRC.RESTAURANT_PHONE,
-            TGT.OPERATING_HOURS = SRC.OPERATING_HOURS,
-            TGT.LOCATION_ID = SRC.LOCATION_ID,
-            TGT.ACTIVE_FLAG = SRC.ACTIVE_FLAG,
-            TGT.OPEN_STATUS = SRC.OPEN_STATUS,
-            TGT.LOCALITY = SRC.LOCALITY,
-            TGT.RESTAURANT_ADDRESS = SRC.RESTAURANT_ADDRESS,
-            TGT.LATITUDE = SRC.LATITUDE,
-            TGT.LONGITUDE = SRC.LONGITUDE,
-            TGT.BATCH_ID = SRC.BATCH_ID,
-            TGT.UPDATED_AT = SRC.UPDATED_AT
+    -- STEP 0: INITIALIZE VARIABLES
+    v_start_time := CURRENT_TIMESTAMP();
 
-    WHEN NOT MATCHED THEN
-        INSERT (
-            NAME, CUISINE_TYPE, PRICING_FOR_TWO, RESTAURANT_PHONE, OPERATING_HOURS,
-            LOCATION_ID, ACTIVE_FLAG, OPEN_STATUS, LOCALITY, RESTAURANT_ADDRESS,
-            LATITUDE, LONGITUDE, BATCH_ID, CREATED_AT, UPDATED_AT
+    -- Get configuration from IMPORT_CONFIGURATION table
+    SELECT BRONZE_TABLE, LOAD_ERROR_TABLE, STAGE_TABLE, SILVER_TABLE
+    INTO :v_bronze_table, :v_load_error_table, :v_stage_table, :v_silver_table
+    FROM COMMON.IMPORT_CONFIGURATION
+    WHERE PIPELINE_NAME = :P_PIPELINE_NAME;
+
+    SELECT COUNT(*)
+    INTO :v_bronze_row_count
+    FROM IDENTIFIER(:v_bronze_table)
+    WHERE INGEST_RUN_ID = :P_INGEST_RUN_ID;
+
+    -- IF EXISTS (SELECT 1 FROM COMMON.INGEST_RUN WHERE INGEST_RUN_ID = :P_INGEST_RUN_ID) THEN
+    -- RETURN OBJECT_CONSTRUCT('STATUS', 'SKIPPED', 'ERROR', 'Already processed');
+    -- END IF;
+
+    -- Validate configuration
+    IF (v_bronze_table IS NULL OR v_load_error_table IS NULL OR
+        v_stage_table IS NULL OR v_silver_table IS NULL) THEN
+        RETURN OBJECT_CONSTRUCT(
+            'STATUS', 'FAILED',
+            'ERROR', 'Configuration not found for pipeline: ' || P_PIPELINE_NAME
+        );
+    END IF;
+
+    IF (v_bronze_row_count = 0) THEN
+        RETURN OBJECT_CONSTRUCT(
+            'STATUS', 'FAILED',
+            'ERROR', 'No records found for INGEST_RUN_ID'
+        );
+    END IF;
+
+    -- Create staging table with DQ flags
+    v_sql := 'CREATE OR REPLACE TEMPORARY TABLE ' || v_stage_table || ' AS
+          SELECT *,
+                 TRUE AS IS_VALID,
+                 ''' || P_BATCH_ID || ''' AS BATCH_ID
+          FROM ' || v_bronze_table || '
+          WHERE INGEST_RUN_ID = ' || P_INGEST_RUN_ID;
+
+    EXECUTE IMMEDIATE v_sql;
+
+    -- Run DQ checks and mark invalid records
+    LET res RESULTSET := (EXECUTE IMMEDIATE 'CALL BRONZE.SP_EXECUTE_DATA_QUALITY_VALIDATION (?, ?, ?, ?)' USING (v_stage_table, v_bronze_table, v_load_error_table, P_INGEST_RUN_ID));
+    LET cur CURSOR FOR res;
+    OPEN cur;
+    FETCH cur INTO v_dq_result;
+    CLOSE cur;
+
+    -- Check if DQ validation was successful
+    v_dq_result_status := v_dq_result:STATUS::STRING;
+    IF (v_dq_result_status NOT LIKE 'SUCCESS%') THEN
+        RETURN OBJECT_CONSTRUCT(
+            'STATUS', 'FAILED',
+            'ERROR', 'DQ Validation failed'
+        );
+    END IF;
+
+    -- Count valid from stage table
+    SELECT COUNT(*) INTO :v_valid_row_count FROM IDENTIFIER(:v_stage_table) WHERE IS_VALID = TRUE;
+
+    -- Calculate invalid
+    v_invalid_row_count := v_bronze_row_count - v_valid_row_count;
+
+    -- Merge only VALID records into Silver table using MERGE statement
+    v_sql := '
+        MERGE INTO ' || v_silver_table || ' AS TGT
+        USING (
+            SELECT
+                RESTAURANT_BRZ_ID,
+                FSSAI_REGISTRATION_NO,
+                RESTAURANT_NAME,
+                CUISINE_TYPE,
+                PRICING_FOR_TWO,
+                RESTAURANT_PHONE,
+                OPERATING_HOURS,
+                LOCATION_ID,
+                ACTIVE_FLAG,
+                OPEN_STATUS,
+                LOCALITY,
+                RESTAURANT_ADDRESS,
+                LATITUDE,
+                LONGITUDE,
+                BATCH_ID,
+                CURRENT_TIMESTAMP() AS CREATED_AT,
+                CURRENT_TIMESTAMP() AS UPDATED_AT
+            FROM ' || v_stage_table || '
+            WHERE IS_VALID = TRUE AND BATCH_ID = ''' || P_BATCH_ID || '''
+        ) AS SRC
+        ON TGT.FSSAI_REGISTRATION_NO = SRC.FSSAI_REGISTRATION_NO
+        AND TGT.LATITUDE = SRC.LATITUDE
+        AND TGT.LONGITUDE = SRC.LONGITUDE
+        WHEN MATCHED THEN
+            UPDATE SET
+                TGT.RESTAURANT_NAME = SRC.RESTAURANT_NAME,
+                TGT.CUISINE_TYPE = SRC.CUISINE_TYPE,
+                TGT.PRICING_FOR_TWO = SRC.PRICING_FOR_TWO,
+                TGT.RESTAURANT_PHONE = SRC.RESTAURANT_PHONE,
+                TGT.OPERATING_HOURS = SRC.OPERATING_HOURS,
+                TGT.LOCATION_ID = SRC.LOCATION_ID,
+                TGT.ACTIVE_FLAG = SRC.ACTIVE_FLAG,
+                TGT.OPEN_STATUS = SRC.OPEN_STATUS,
+                TGT.LOCALITY = SRC.LOCALITY,
+                TGT.RESTAURANT_ADDRESS = SRC.RESTAURANT_ADDRESS,
+                TGT.LATITUDE = SRC.LATITUDE,
+                TGT.LONGITUDE = SRC.LONGITUDE,
+                TGT.BATCH_ID = SRC.BATCH_ID,
+                TGT.UPDATED_AT = SRC.UPDATED_AT
+        WHEN NOT MATCHED THEN
+            INSERT (
+                FSSAI_REGISTRATION_NO, RESTAURANT_NAME, CUISINE_TYPE, PRICING_FOR_TWO, RESTAURANT_PHONE, OPERATING_HOURS,
+                LOCATION_ID, ACTIVE_FLAG, OPEN_STATUS, LOCALITY, RESTAURANT_ADDRESS,
+                LATITUDE, LONGITUDE, BATCH_ID, CREATED_AT, UPDATED_AT
+            )
+            VALUES (
+                SRC.FSSAI_REGISTRATION_NO, SRC.RESTAURANT_NAME, SRC.CUISINE_TYPE, SRC.PRICING_FOR_TWO, SRC.RESTAURANT_PHONE,
+                SRC.OPERATING_HOURS, SRC.LOCATION_ID, SRC.ACTIVE_FLAG, SRC.OPEN_STATUS,
+                SRC.LOCALITY, SRC.RESTAURANT_ADDRESS, SRC.LATITUDE, SRC.LONGITUDE,
+                SRC.BATCH_ID, SRC.CREATED_AT, SRC.UPDATED_AT
+            )';
+    EXECUTE IMMEDIATE v_sql;
+
+    -- Get merge statistics (rows inserted + updated)
+    V_ROWS_INSERTED := SQLROWCOUNT;
+
+    -- Get target row count for this batch
+    SELECT COUNT(*) INTO :v_silver_row_count FROM IDENTIFIER(:v_stage_table) WHERE BATCH_ID = :P_BATCH_ID;
+
+    v_end_time := CURRENT_TIMESTAMP();
+    v_execution_duration := DATEDIFF(SECOND, v_start_time, v_end_time);
+
+    -- Insert into INGEST_RUN table
+    INSERT INTO COMMON.INGEST_RUN(
+        INGEST_RUN_ID, PIPELINE_NAME, SOURCE_TABLE, LOAD_ERROR_TABLE, RUN_STATUS,
+        SOURCE_ROW_COUNT, VALID_ROW_COUNT, INVALID_ROW_COUNT, EXECUTION_DURATION_SEC,
+        ERROR_MESSAGE, EXECUTED_AT, EXECUTED_BY)
+    VALUES(
+        :p_ingest_run_id,
+        :p_pipeline_name,
+        :v_bronze_table,
+        :v_load_error_table,
+        'SUCCESS',
+        :v_bronze_row_count,
+        :v_valid_row_count,
+        :v_invalid_row_count,
+        :v_execution_duration,
+        'None',
+        :v_end_time,
+        CURRENT_USER()
+    );
+
+    -- Drop staging table
+    v_sql := 'DROP TABLE IF EXISTS ' || v_stage_table;
+    EXECUTE IMMEDIATE v_sql;
+
+    RETURN OBJECT_CONSTRUCT(
+        'STATUS', 'SUCCESSFUL',
+        'ERROR', 'NONE',
+        'ROWS_INSERTED', v_rows_inserted::VARCHAR,
+        'ROWS_UPDATED', v_rows_updated::VARCHAR,
+        'INGEST_LOG', OBJECT_CONSTRUCT(
+            'INGEST_RUN_ID', P_INGEST_RUN_ID::VARCHAR,
+            'BATCH_ID', P_BATCH_ID,
+            'BRONZE_ROW_COUNT', v_bronze_row_count::VARCHAR,
+            'VALID_ROW_COUNT', v_valid_row_count::VARCHAR,
+            'INVALID_ROW_COUNT', v_invalid_row_count::VARCHAR,
+            'TARGET_ROW_COUNT', v_silver_row_count::VARCHAR,
+            'ROWS_MERGED', v_rows_inserted::VARCHAR,
+            'EXECUTION_TIME_SEC', v_execution_duration::VARCHAR,
+            'DATA_VALIDATION_RESULT', v_dq_result
         )
-        VALUES (
-            SRC.NAME, SRC.CUISINE_TYPE, SRC.PRICING_FOR_TWO, SRC.RESTAURANT_PHONE,
-            SRC.OPERATING_HOURS, SRC.LOCATION_ID, SRC.ACTIVE_FLAG, SRC.OPEN_STATUS,
-            SRC.LOCALITY, SRC.RESTAURANT_ADDRESS, SRC.LATITUDE, SRC.LONGITUDE,
-            SRC.BATCH_ID, SRC.CREATED_AT, SRC.UPDATED_AT
-        );
-
-    -- Get merge statistics
-    V_ROWS_INSERTED := (SELECT COUNT(*) FROM SILVER.RESTAURANT_SLV WHERE BATCH_ID = :P_BATCH_ID);
-
-    RETURN ARRAY_CONSTRUCT(
-            'SUCCESSFUL',
-            v_rows_inserted,
-            v_rows_updated
-        );
+    );
 
 EXCEPTION
     WHEN OTHER THEN
-        RETURN ARRAY_CONSTRUCT(
+        v_error_message := SQLERRM;
+        v_end_time := CURRENT_TIMESTAMP();
+        v_execution_duration := DATEDIFF(SECOND, v_start_time, v_end_time);
+
+        -- Update run status to failed
+        INSERT INTO COMMON.INGEST_RUN(
+            INGEST_RUN_ID, PIPELINE_NAME, SOURCE_TABLE, LOAD_ERROR_TABLE, RUN_STATUS,
+            SOURCE_ROW_COUNT, VALID_ROW_COUNT, INVALID_ROW_COUNT, EXECUTION_DURATION_SEC,
+            ERROR_MESSAGE, EXECUTED_AT, EXECUTED_BY)
+        VALUES(
+            :p_ingest_run_id,
+            :p_pipeline_name,
+            :v_bronze_table,
+            :v_load_error_table,
             'FAILED',
-            v_rows_inserted,
-            v_rows_updated
+            :v_bronze_row_count,
+            :v_valid_row_count,
+            :v_invalid_row_count,
+            :v_execution_duration,
+            :v_error_message,
+            :v_end_time,
+            CURRENT_USER()
+        );
+
+        -- Drop temp table if exists
+        EXECUTE IMMEDIATE 'DROP TABLE IF EXISTS ' || v_stage_table;
+
+        RETURN OBJECT_CONSTRUCT(
+            'STATUS', 'FAILED',
+            'ERROR', v_error_message
         );
 END;
 $$;
 
+CALL SILVER.SP_RESTAURANT_BRONZE_TO_SILVER('RESTAURANT_PIPELINE', 1, '123');
+SELECT * FROM SILVER.RESTAURANT_SLV;
 -- =====================================================
 -- PROCEDURE 3: SILVER TO GOLD (WITH SCD2)
 -- =====================================================
@@ -280,65 +575,68 @@ LANGUAGE SQL
 AS
 $$
 DECLARE
-    V_CURRENT_TIMESTAMP TIMESTAMP_TZ;
+    V_CURRENT_TIMESTAMP TIMESTAMP_TZ(9);
     V_ROWS_INSERTED INTEGER DEFAULT 0;
     V_ROWS_UPDATED INTEGER DEFAULT 0;
+    V_ROWS_UNCHANGED INTEGER DEFAULT 0;
     V_ROWS_DELETED INTEGER DEFAULT 0;
+    V_SOURCE_ROW_COUNT INTEGER DEFAULT 0;
+    V_BATCH_EXISTS INTEGER DEFAULT 0;
+    V_START_TIME TIMESTAMP_TZ(9);
+    V_END_TIME TIMESTAMP_TZ(9);
+    V_EXECUTION_DURATION INTEGER;
+    V_ERROR_MESSAGE VARCHAR(5000);
 BEGIN
+    V_START_TIME := CURRENT_TIMESTAMP();
     V_CURRENT_TIMESTAMP := CURRENT_TIMESTAMP();
 
-    -- Step 1: Expire records that have changed (set EFF_END_DATE and STATUS = FALSE)
-    UPDATE GOLD.DIM_RESTAURANT AS TGT
-    SET
-        EFF_END_DATE = :V_CURRENT_TIMESTAMP,
-        STATUS = FALSE
-    FROM (
-        SELECT
-            SRC.RESTAURANT_SLV_ID,
-            SRC.NAME,
-            SRC.CUISINE_TYPE,
-            SRC.PRICING_FOR_TWO,
-            SRC.RESTAURANT_PHONE,
-            SRC.OPERATING_HOURS,
-            SRC.LOCATION_ID,
-            SRC.ACTIVE_FLAG,
-            SRC.OPEN_STATUS,
-            SRC.LOCALITY,
-            SRC.RESTAURANT_ADDRESS,
-            SRC.LATITUDE,
-            SRC.LONGITUDE
-        FROM SILVER.RESTAURANT_SLV SRC
-        WHERE SRC.BATCH_ID = :P_BATCH_ID
-    ) AS SRC
-    WHERE TGT.RESTAURANT_ID = SRC.RESTAURANT_SLV_ID
-        AND TGT.STATUS = TRUE
-        AND (
-            COALESCE(TGT.NAME, '') != COALESCE(SRC.NAME, '')
-            OR COALESCE(TGT.CUISINE_TYPE, '') != COALESCE(SRC.CUISINE_TYPE, '')
-            OR COALESCE(TGT.PRICING_FOR_TWO, 0) != COALESCE(SRC.PRICING_FOR_TWO, 0)
-            OR COALESCE(TGT.RESTAURANT_PHONE, '') != COALESCE(SRC.RESTAURANT_PHONE, '')
-            OR COALESCE(TGT.OPERATING_HOURS, '') != COALESCE(SRC.OPERATING_HOURS, '')
-            OR COALESCE(TGT.LOCATION_ID, 0) != COALESCE(SRC.LOCATION_ID, 0)
-            OR COALESCE(TGT.ACTIVE_FLAG, '') != COALESCE(SRC.ACTIVE_FLAG, '')
-            OR COALESCE(TGT.OPEN_STATUS, '') != COALESCE(SRC.OPEN_STATUS, '')
-            OR COALESCE(TGT.LOCALITY, '') != COALESCE(SRC.LOCALITY, '')
-            OR COALESCE(TGT.RESTAURANT_ADDRESS, '') != COALESCE(SRC.RESTAURANT_ADDRESS, '')
-            OR COALESCE(TGT.LATITUDE, 0) != COALESCE(SRC.LATITUDE, 0)
-            OR COALESCE(TGT.LONGITUDE, 0) != COALESCE(SRC.LONGITUDE, 0)
+    -- ================================================================
+    -- STEP 1: VALIDATION & IDEMPOTENCY CHECK
+    -- ================================================================
+
+    -- Check if batch already processed
+    SELECT COUNT(*)
+    INTO :V_BATCH_EXISTS
+    FROM GOLD.DIM_RESTAURANT
+    WHERE BATCH_ID = :P_BATCH_ID
+    AND STATUS = 'ACTIVE'
+    LIMIT 1;
+
+    IF (V_BATCH_EXISTS > 0) THEN
+        RETURN OBJECT_CONSTRUCT(
+            'STATUS', 'SKIPPED',
+            'MESSAGE', 'Batch already processed',
+            'BATCH_ID', P_BATCH_ID,
+            'ROWS_INSERTED', 0,
+            'ROWS_UPDATED', 0,
+            'ROWS_UNCHANGED', 0
         );
+    END IF;
 
-    V_ROWS_UPDATED := SQLROWCOUNT;
+    -- Check if source batch exists
+    SELECT COUNT(*)
+    INTO :V_SOURCE_ROW_COUNT
+    FROM SILVER.RESTAURANT_SLV
+    WHERE BATCH_ID = :P_BATCH_ID;
 
-    -- Step 2: Insert new records (both brand new and changed records)
-    INSERT INTO GOLD.DIM_RESTAURANT (
-        RESTAURANT_ID, NAME, CUISINE_TYPE, PRICING_FOR_TWO, RESTAURANT_PHONE,
-        OPERATING_HOURS, LOCATION_ID, ACTIVE_FLAG, OPEN_STATUS, LOCALITY,
-        RESTAURANT_ADDRESS, LATITUDE, LONGITUDE, BATCH_ID, STATUS,
-        EFF_START_DATE, EFF_END_DATE
-    )
+    IF (V_SOURCE_ROW_COUNT = 0) THEN
+        RETURN OBJECT_CONSTRUCT(
+            'STATUS', 'FAILED',
+            'ERROR', 'No records found for BATCH_ID: ' || P_BATCH_ID,
+            'BATCH_ID', P_BATCH_ID
+        );
+    END IF;
+
+    -- ================================================================
+    -- STEP 2: CREATE STAGING TABLE WITH CHANGE DETECTION
+    -- ================================================================
+    -- This staging table will identify what action to take for each record
+
+    CREATE OR REPLACE TEMPORARY TABLE TEMP_RESTAURANT_STAGING AS
     SELECT
-        SRC.RESTAURANT_SLV_ID AS RESTAURANT_ID,
-        SRC.NAME,
+        SRC.RESTAURANT_SLV_ID,
+        SRC.FSSAI_REGISTRATION_NO,
+        SRC.RESTAURANT_NAME,
         SRC.CUISINE_TYPE,
         SRC.PRICING_FOR_TWO,
         SRC.RESTAURANT_PHONE,
@@ -351,55 +649,217 @@ BEGIN
         SRC.LATITUDE,
         SRC.LONGITUDE,
         SRC.BATCH_ID,
-        TRUE AS STATUS,
-        :V_CURRENT_TIMESTAMP AS EFF_START_DATE,
-        NULL AS EFF_END_DATE
-    FROM SILVER.RESTAURANT_SLV SRC
-    WHERE SRC.BATCH_ID = :P_BATCH_ID
-        AND NOT EXISTS (
-            SELECT 1
-            FROM GOLD.DIM_RESTAURANT TGT
-            WHERE TGT.RESTAURANT_ID = SRC.RESTAURANT_SLV_ID
-                AND TGT.STATUS = TRUE
-                AND COALESCE(TGT.NAME, '') = COALESCE(SRC.NAME, '')
-                AND COALESCE(TGT.CUISINE_TYPE, '') = COALESCE(SRC.CUISINE_TYPE, '')
-                AND COALESCE(TGT.PRICING_FOR_TWO, 0) = COALESCE(SRC.PRICING_FOR_TWO, 0)
-                AND COALESCE(TGT.RESTAURANT_PHONE, '') = COALESCE(SRC.RESTAURANT_PHONE, '')
-                AND COALESCE(TGT.OPERATING_HOURS, '') = COALESCE(SRC.OPERATING_HOURS, '')
-                AND COALESCE(TGT.LOCATION_ID, 0) = COALESCE(SRC.LOCATION_ID, 0)
-                AND COALESCE(TGT.ACTIVE_FLAG, '') = COALESCE(SRC.ACTIVE_FLAG, '')
-                AND COALESCE(TGT.OPEN_STATUS, '') = COALESCE(SRC.OPEN_STATUS, '')
-                AND COALESCE(TGT.LOCALITY, '') = COALESCE(SRC.LOCALITY, '')
-                AND COALESCE(TGT.RESTAURANT_ADDRESS, '') = COALESCE(SRC.RESTAURANT_ADDRESS, '')
-                AND COALESCE(TGT.LATITUDE, 0) = COALESCE(SRC.LATITUDE, 0)
-                AND COALESCE(TGT.LONGITUDE, 0) = COALESCE(SRC.LONGITUDE, 0)
-        );
 
-    -- Get count of inserted rows
+        -- Calculate hash of attributes for change detection
+        SHA2_HEX(
+            CONCAT_WS('|',
+                COALESCE(TO_VARCHAR(SRC.FSSAI_REGISTRATION_NO), ''),
+                COALESCE(SRC.RESTAURANT_NAME, ''),
+                COALESCE(SRC.CUISINE_TYPE, ''),
+                COALESCE(TO_VARCHAR(SRC.PRICING_FOR_TWO), ''),
+                COALESCE(SRC.RESTAURANT_PHONE, ''),
+                COALESCE(SRC.OPERATING_HOURS, ''),
+                COALESCE(SRC.LOCATION_ID, ''),
+                COALESCE(SRC.OPEN_STATUS, ''),
+                COALESCE(SRC.LOCALITY, ''),
+                COALESCE(SRC.RESTAURANT_ADDRESS, ''),
+                COALESCE(TO_VARCHAR(SRC.LATITUDE), ''),
+                COALESCE(TO_VARCHAR(SRC.LONGITUDE), '')
+            )
+        ) AS CURRENT_HASH,
+
+        -- Get existing record info
+        TGT.RESTAURANT_ID AS EXISTING_RESTAURANT_ID,
+        SHA2_HEX(
+            CONCAT_WS('|',
+                COALESCE(TO_VARCHAR(SRC.FSSAI_REGISTRATION_NO), ''),
+                COALESCE(SRC.RESTAURANT_NAME, ''),
+                COALESCE(SRC.CUISINE_TYPE, ''),
+                COALESCE(TO_VARCHAR(SRC.PRICING_FOR_TWO), ''),
+                COALESCE(SRC.RESTAURANT_PHONE, ''),
+                COALESCE(SRC.OPERATING_HOURS, ''),
+                COALESCE(SRC.LOCATION_ID, ''),
+                COALESCE(SRC.OPEN_STATUS, ''),
+                COALESCE(SRC.LOCALITY, ''),
+                COALESCE(SRC.RESTAURANT_ADDRESS, ''),
+                COALESCE(TO_VARCHAR(SRC.LATITUDE), ''),
+                COALESCE(TO_VARCHAR(SRC.LONGITUDE), '')
+            )
+        ) AS EXISTING_HASH,
+
+        -- Determine action
+        CASE
+            WHEN TGT.RESTAURANT_ID IS NULL THEN 'INSERT'
+            WHEN SHA2_HEX(
+            CONCAT_WS('|',
+                COALESCE(TO_VARCHAR(SRC.FSSAI_REGISTRATION_NO), ''),
+                COALESCE(SRC.RESTAURANT_NAME, ''),
+                COALESCE(SRC.CUISINE_TYPE, ''),
+                COALESCE(TO_VARCHAR(SRC.PRICING_FOR_TWO), ''),
+                COALESCE(SRC.RESTAURANT_PHONE, ''),
+                COALESCE(SRC.OPERATING_HOURS, ''),
+                COALESCE(SRC.LOCATION_ID, ''),
+                COALESCE(SRC.OPEN_STATUS, ''),
+                COALESCE(SRC.LOCALITY, ''),
+                COALESCE(SRC.RESTAURANT_ADDRESS, ''),
+                COALESCE(TO_VARCHAR(SRC.LATITUDE), ''),
+                COALESCE(TO_VARCHAR(SRC.LONGITUDE), '')
+            )
+        ) != SHA2_HEX(
+            CONCAT_WS('|',
+                COALESCE(TO_VARCHAR(SRC.FSSAI_REGISTRATION_NO), ''),
+                COALESCE(SRC.RESTAURANT_NAME, ''),
+                COALESCE(SRC.CUISINE_TYPE, ''),
+                COALESCE(TO_VARCHAR(SRC.PRICING_FOR_TWO), ''),
+                COALESCE(SRC.RESTAURANT_PHONE, ''),
+                COALESCE(SRC.OPERATING_HOURS, ''),
+                COALESCE(SRC.LOCATION_ID, ''),
+                COALESCE(SRC.OPEN_STATUS, ''),
+                COALESCE(SRC.LOCALITY, ''),
+                COALESCE(SRC.RESTAURANT_ADDRESS, ''),
+                COALESCE(TO_VARCHAR(SRC.LATITUDE), ''),
+                COALESCE(TO_VARCHAR(SRC.LONGITUDE), '')
+            )
+        ) THEN 'UPDATE'
+            ELSE 'UNCHANGED'
+        END AS SCD_ACTION
+
+    FROM SILVER.RESTAURANT_SLV SRC
+    LEFT JOIN GOLD.DIM_RESTAURANT TGT
+        ON TGT.RESTAURANT_ID = SRC.RESTAURANT_SLV_ID
+        AND TGT.STATUS = 'ACTIVE'
+    WHERE SRC.BATCH_ID = :P_BATCH_ID;
+
+    -- ================================================================
+    -- STEP 3: EXPIRE CHANGED RECORDS (SCD2 - CLOSE OLD VERSIONS)
+    -- ================================================================
+
+    UPDATE GOLD.DIM_RESTAURANT
+    SET
+        STATUS = 'INACTIVE',
+        EFF_END_DT = :V_CURRENT_TIMESTAMP,
+        UPDATED_AT = :V_CURRENT_TIMESTAMP
+    WHERE RESTAURANT_ID IN (
+        SELECT RESTAURANT_SLV_ID
+        FROM TEMP_RESTAURANT_STAGING
+        WHERE SCD_ACTION = 'UPDATE'
+    )
+    AND STATUS = 'ACTIVE';
+
+    V_ROWS_UPDATED := SQLROWCOUNT;
+
+    -- ================================================================
+    -- STEP 4: INSERT NEW AND CHANGED RECORDS
+    -- ================================================================
+
+    INSERT INTO GOLD.DIM_RESTAURANT (
+        RESTAURANT_ID,
+        FSSAI_REGISTRATION_NO,
+        RESTAURANT_NAME,
+        CUISINE_TYPE,
+        PRICING_FOR_TWO,
+        RESTAURANT_PHONE,
+        OPERATING_HOURS,
+        LOCATION_ID,
+        ACTIVE_FLAG,
+        OPEN_STATUS,
+        LOCALITY,
+        RESTAURANT_ADDRESS,
+        LATITUDE,
+        LONGITUDE,
+        STATUS,
+        EFF_START_DT,
+        EFF_END_DT,
+        BATCH_ID,
+        CREATED_AT,
+        UPDATED_AT
+    )
+    SELECT
+        RESTAURANT_SLV_ID AS RESTAURANT_ID,
+        FSSAI_REGISTRATION_NO,
+        RESTAURANT_NAME,
+        CUISINE_TYPE,
+        PRICING_FOR_TWO,
+        RESTAURANT_PHONE,
+        OPERATING_HOURS,
+        LOCATION_ID,
+        ACTIVE_FLAG,
+        OPEN_STATUS,
+        LOCALITY,
+        RESTAURANT_ADDRESS,
+        LATITUDE,
+        LONGITUDE,
+        'ACTIVE' AS STATUS,
+        :V_CURRENT_TIMESTAMP AS EFF_START_DT,
+        CAST('9999-12-31 23:59:59' AS TIMESTAMP_TZ(9)) AS EFF_END_DT,
+        BATCH_ID,
+        :V_CURRENT_TIMESTAMP AS CREATED_AT,
+        :V_CURRENT_TIMESTAMP AS UPDATED_AT
+    FROM TEMP_RESTAURANT_STAGING
+    WHERE SCD_ACTION IN ('INSERT', 'UPDATE');
+
     V_ROWS_INSERTED := SQLROWCOUNT;
 
-    RETURN ARRAY_CONSTRUCT(
-            'SUCCESSFUL',
-            v_rows_inserted,
-            v_rows_updated,
-            v_rows_deleted
-        );
+    -- Get unchanged count
+    SELECT COUNT(*)
+    INTO :V_ROWS_UNCHANGED
+    FROM TEMP_RESTAURANT_STAGING
+    WHERE SCD_ACTION = 'UNCHANGED';
+
+    -- ================================================================
+    -- STEP 5: CLEANUP & RETURN
+    -- ================================================================
+
+    DROP TABLE IF EXISTS TEMP_RESTAURANT_STAGING;
+
+    V_END_TIME := CURRENT_TIMESTAMP();
+    V_EXECUTION_DURATION := DATEDIFF(SECOND, V_START_TIME, V_END_TIME);
+
+    RETURN OBJECT_CONSTRUCT(
+        'STATUS', 'SUCCESS',
+        'ERROR', 'None',
+        'MESSAGE', 'SCD2 processing completed successfully',
+        'BATCH_ID', P_BATCH_ID,
+        'SOURCE_ROW_COUNT', V_SOURCE_ROW_COUNT,
+        'ROWS_INSERTED', V_ROWS_INSERTED,
+        'ROWS_UPDATED', V_ROWS_UPDATED,
+        'ROWS_DELETED', V_ROWS_DELETED,
+        'ROWS_UNCHANGED', V_ROWS_UNCHANGED,
+        'TOTAL_PROCESSED', V_SOURCE_ROW_COUNT
+    );
 
 EXCEPTION
     WHEN OTHER THEN
-        RETURN ARRAY_CONSTRUCT(
-            'FAILED',
-            v_rows_inserted,
-            v_rows_updated,
-            v_rows_deleted
+        V_ERROR_MESSAGE := SQLERRM;
+        V_END_TIME := CURRENT_TIMESTAMP();
+        V_EXECUTION_DURATION := DATEDIFF(SECOND, V_START_TIME, V_END_TIME);
+
+        -- Cleanup temp table
+        DROP TABLE IF EXISTS TEMP_RESTAURANT_STAGING;
+
+        RETURN OBJECT_CONSTRUCT(
+            'STATUS', 'FAILED',
+            'ERROR', V_ERROR_MESSAGE,
+            'BATCH_ID', P_BATCH_ID,
+            'EXECUTION_TIME_SEC', V_EXECUTION_DURATION,
+            'SOURCE_ROW_COUNT', V_SOURCE_ROW_COUNT,
+            'ROWS_INSERTED', V_ROWS_INSERTED,
+            'ROWS_UPDATED', V_ROWS_UPDATED,
+            'ROWS_DELETED', V_ROWS_DELETED,
+            'ROWS_UNCHANGED', V_ROWS_UNCHANGED,
+            'TOTAL_PROCESSED', V_SOURCE_ROW_COUNT
         );
 END;
 $$;
+
+CALL GOLD.SP_RESTAURANT_SILVER_TO_GOLD('123');
+SELECT * FROM GOLD.DIM_RESTAURANT;
+ERROR;
 -- =====================================================
 -- Query to see history of a specific restaurant
 SELECT * FROM GOLD.DIM_RESTAURANT
 WHERE RESTAURANT_ID = 123
-ORDER BY EFF_START_DATE;
+ORDER BY EFF_START_DT;
 
 -- Query to see restaurants with price changes
 SELECT
@@ -408,8 +868,8 @@ SELECT
     PRICING_FOR_TWO,
     ACTIVE_FLAG,
     OPEN_STATUS,
-    EFF_START_DATE,
-    EFF_END_DATE,
+    EFF_START_DT,
+    EFF_END_DT,
     STATUS
 FROM GOLD.DIM_RESTAURANT
 WHERE RESTAURANT_ID IN (
@@ -418,17 +878,17 @@ WHERE RESTAURANT_ID IN (
     GROUP BY RESTAURANT_ID
     HAVING COUNT(*) > 1
 )
-ORDER BY RESTAURANT_ID, EFF_START_DATE;
+ORDER BY RESTAURANT_ID, EFF_START_DT;
 
 -- Query to find restaurants that changed operating hours
 SELECT
     RESTAURANT_ID,
-    NAME,
+    RESTAURANT_NAME,
     OPERATING_HOURS,
-    EFF_START_DATE,
-    EFF_END_DATE
+    EFF_START_DT,
+    EFF_END_DT
 FROM GOLD.DIM_RESTAURANT
 WHERE STATUS = FALSE
-    AND EFF_END_DATE IS NOT NULL
-ORDER BY EFF_END_DATE DESC;
+    AND EFF_END_DT IS NOT NULL
+ORDER BY EFF_END_DT DESC;
 -- ====================================================================================================
