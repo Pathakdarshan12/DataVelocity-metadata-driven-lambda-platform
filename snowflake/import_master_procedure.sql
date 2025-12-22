@@ -105,7 +105,7 @@ VALUES
 
 ('RESTAURANT_PIPELINE',
     'FILE',
-    '@CSV_STAGE/restaurant/',
+    '@BRONZE.CSV_STG/restaurant/',
     'BRONZE.FF_CSV_COMMA',
     'BRONZE.RESTAURANT_BRZ',
     'BRONZE.RESTAURANT_LOAD_ERROR',
@@ -155,9 +155,6 @@ VALUES
 --     'SILVER.SP_ORDER_ITEM_BRONZE_TO_SILVER',
 --     'GOLD.SP_ORDER_ITEM_SILVER_TO_GOLD',
 --     'Order Item master data pipeline with SCD Type 2');
-
-
-SELECT * FROM COMMON.IMPORT_CONFIGURATION;
 
 -- =====================================================
 -- BATCH TABLE - STORES BATCH EXECUTION DATA
@@ -444,92 +441,112 @@ BEGIN
         )
     WHERE BATCH_ID = :v_batch_id;
 
-    RETURN 'SUCCESS | BATCH_ID=' || :v_batch_id ||
-           ' | STB=' || :v_stb_status ||
-           ' | BTS=' || :v_bts_status ||
-           ' | STG=' || :v_stg_status;
+    RETURN  OBJECT_CONSTRUCT(
+            'batch_start_time', :v_batch_start_time,
+            'batch_end_time', :v_batch_end_time,
+            'total_duration_sec', DATEDIFF(SECOND, :v_batch_start_time, :v_batch_end_time),
+            'stage_path', :STAGE_PATH_PARAM,
 
--- EXCEPTION
---     WHEN OTHER THEN
---         -- Log critical failure
---         BEGIN
---             UPDATE COMMON.BATCH
---             SET
---                 BATCH_LOG = OBJECT_CONSTRUCT(
---                     'critical_error', SQLERRM,
---                     'error_timestamp', CURRENT_TIMESTAMP(),
---                     'batch_start_time', :v_batch_start_time,
---                     'stage_to_bronze_status', :v_stb_status,
---                     'bronze_to_silver_status', :v_bts_status,
---                     'silver_to_gold_status', :v_stg_status
---                 )
---             WHERE BATCH_ID = :v_batch_id;
---         EXCEPTION
---             WHEN OTHER THEN
---                 NULL;
---         END;
+            'stage_to_bronze', OBJECT_CONSTRUCT(
+                'ingest_run_id', :v_ingest_run_id,
+                'status', :v_stb_status,
+                'start_time', :v_stb_start_time,
+                'end_time', :v_stb_end_time,
+                'duration_sec', :v_stb_duration_sec,
+                'records_inserted', :v_b_inserted_records,
+                'error', :v_stb_error,
+                'procedure_name', :v_stage_to_bronze_proc,
+                'result', :v_stb_result
+            ),
 
---         RETURN 'CRITICAL FAILURE | BATCH_ID=' || :v_batch_id || ' | ' || SQLERRM;
+            'bronze_to_silver', OBJECT_CONSTRUCT(
+                'status', :v_bts_status,
+                'start_time', :v_bts_start_time,
+                'end_time', :v_bts_end_time,
+                'duration_sec', :v_bts_duration_sec,
+                'records_inserted', :v_s_inserted_records,
+                'records_updated', :v_s_updated_records,
+                'error', :v_bts_error,
+                'procedure_name', :v_bronze_to_silver_proc,
+                'result', :v_bts_result
+            ),
+
+            'silver_to_gold', OBJECT_CONSTRUCT(
+                'status', :v_stg_status,
+                'start_time', :v_stg_start_time,
+                'end_time', :v_stg_end_time,
+                'duration_sec', :v_stg_duration_sec,
+                'records_inserted', :v_g_inserted_records,
+                'records_updated', :v_g_updated_records,
+                'records_deleted', :v_g_deleted_records,
+                'error', :v_stg_error,
+                'procedure_name', :v_silver_to_gold_proc,
+                'result', :v_stg_result
+            )
+        );
+
+ EXCEPTION
+     WHEN OTHER THEN
+         -- Log critical failure
+         BEGIN
+             UPDATE COMMON.BATCH
+             SET
+                 BATCH_LOG = OBJECT_CONSTRUCT(
+                     'critical_error', SQLERRM,
+                     'error_timestamp', CURRENT_TIMESTAMP(),
+                     'batch_start_time', :v_batch_start_time,
+                     'stage_to_bronze_status', :v_stb_status,
+                     'bronze_to_silver_status', :v_bts_status,
+                     'silver_to_gold_status', :v_stg_status
+                 )
+             WHERE BATCH_ID = :v_batch_id;
+         EXCEPTION
+             WHEN OTHER THEN
+                 NULL;
+         END;
+
+         RETURN 'CRITICAL FAILURE | BATCH_ID=' || :v_batch_id || ' | ' || SQLERRM;
 END;
 $$;
 
-show procedures;
-
-DROP PROCEDURE PUBLIC.SP_DELIVERY_AGENT_BRONZE_TO_SILVER(VARCHAR);
-DROP PROCEDURE PUBLIC.SP_DELIVERY_AGENT_STAGE_TO_BRONZE(VARCHAR, VARCHAR);
-DROP PROCEDURE PUBLIC.SP_IMPORT_MASTER(VARCHAR, VARCHAR);
-DROP PROCEDURE PUBLIC.SP_LOCATION_STAGE_TO_BRONZE(VARCHAR, VARCHAR);
-DROP PROCEDURE COMMON.SP_IMPORT_MASTER(VARCHAR, VARCHAR);
-
 -- Execute the pipeline
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_01-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_03-01-2025.csv');
+--CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_01-01-2025.csv');
+--CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_02-01-2025.csv');
+--CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_03-01-2025.csv');
 
 CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer/customer_02-02-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer/customer_03-03-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_02-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_03-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_04-01-2025_invalid.csv');
 
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_01-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_03-01-2025.csv');
+--CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_01-01-2025.csv');
+--CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_02-01-2025.csv');
+--CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_03-01-2025.csv');
 
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_01-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_03-01-2025csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_04-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_05-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_06-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_01-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_02-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_03-01-2025csv');
+CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_04-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_05-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_06-01-2025.csv');
 
-CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_01-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_02-01-2025.csv.csv');
-CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_03-01-2025.csv');
+--CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_01-01-2025.csv');
+--CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_02-01-2025.csv.csv');
+--CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_03-01-2025.csv');
 
-CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/restaurant/restaurant_01-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/restaurant/restaurant_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/restaurant/restaurant_03-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', 'restaurant_01-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', 'restaurant_02-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', 'restaurant_03-01-2025.csv');
+--
+--CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/delivery-initial-load.csv');
+--CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/day-01-delivery.csv');
+--CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/day-02-delivery.csv');
 
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/delivery-initial-load.csv');
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/day-01-delivery.csv');
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/day-02-delivery.csv');
+--CALL COMMON.SP_IMPORT_MASTER('ORDER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order/orders-initial.csv');
+--CALL COMMON.SP_IMPORT_MASTER('ORDER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order/day-01-orders.csv');
+--CALL COMMON.SP_IMPORT_MASTER('ORDER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order/day-02-orders.csv');
 
-CALL COMMON.SP_IMPORT_MASTER('ORDER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order/orders-initial.csv');
-CALL COMMON.SP_IMPORT_MASTER('ORDER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order/day-01-orders.csv');
-CALL COMMON.SP_IMPORT_MASTER('ORDER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order/day-02-orders.csv');
-
-CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/order-item-initial.csv');
-CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/day-01-order-item.csv');
-CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/day-02-order-item.csv');
-CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/order-item-initial-v2.csv');
-
-select * from bronze.CUSTOMER_ADDRESS_BRZ; where batch_id = 'c1a74277-f437-4463-bcdd-ee79a5615311';
-select * from silver.location_slv where batch_id = 'c1a74277-f437-4463-bcdd-ee79a5615311';
-select * from gold.dim_location where batch_id = 'c1a74277-f437-4463-bcdd-ee79a5615311';
-
-SELECT * FROM COMMON.BATCH order by last_batch_executed_at desc;
-LIST @csv_stg;
-select * from bronze.location_brz where batch_id = 'e265cc8e-48cb-4ad0-9537-b0b45516ec13';
-select * from gold.dim_location;
-
-SELECT * FROM BATCH ORDER BY LAST_BATCH_EXECUTED_AT DESC;
-SELECT * FROM INGEST_RUN ORDER BY EXECUTED_AT DESC;
+--CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/order-item-initial.csv');
+--CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/day-01-order-item.csv');
+--CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/day-02-order-item.csv');
+--CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/order-item-initial-v2.csv');
