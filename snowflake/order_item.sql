@@ -101,7 +101,7 @@ BEGIN
                 $7::STRING AS ORDER_TIMESTAMP
             FROM ' || P_FILE_PATH || '
         )
-        FILE_FORMAT = (FORMAT_NAME = ''BRONZE.CSV_FILE_FORMAT'')
+        FILE_FORMAT = (FORMAT_NAME = ''BRONZE.FF_CSV_COMMA'')
         ON_ERROR = ABORT_STATEMENT
     ';
 
@@ -121,12 +121,17 @@ BEGIN
 
     RETURN ARRAY_CONSTRUCT(
             'SUCCESSFUL',
+            'ERROR: None',
             v_rows_inserted
         );
 
 EXCEPTION
     WHEN OTHER THEN
-        RETURN 'Error occurred: ' || SQLERRM;
+        RETURN ARRAY_CONSTRUCT(
+            'SUCCESSFUL',
+            'ERROR: '|| SQLERRM,
+            v_rows_inserted
+        );
 END;
 $$;
 
@@ -169,6 +174,7 @@ BEGIN
 
     RETURN ARRAY_CONSTRUCT(
             'SUCCESSFUL',
+            'ERROR: None',
             v_rows_inserted,
             v_rows_updated
         );
@@ -177,6 +183,7 @@ EXCEPTION
     WHEN OTHER THEN
         RETURN ARRAY_CONSTRUCT(
             SQLERRM,
+            'ERROR: '|| SQLERRM,
             v_rows_inserted,
             v_rows_updated
         );
@@ -222,6 +229,7 @@ BEGIN
 
     RETURN ARRAY_CONSTRUCT(
             'SUCCESSFUL',
+            'ERROR: None',
             v_rows_inserted,
             v_rows_updated,
             v_rows_deleted
@@ -231,6 +239,7 @@ EXCEPTION
     WHEN OTHER THEN
         RETURN ARRAY_CONSTRUCT(
             'FAILED',
+            'ERROR: '|| SQLERRM,
             v_rows_inserted,
             v_rows_updated,
             v_rows_deleted

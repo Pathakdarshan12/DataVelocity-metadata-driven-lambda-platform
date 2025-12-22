@@ -25,9 +25,10 @@ CREATE SCHEMA IF NOT EXISTS GOLD;
 CREATE SCHEMA IF NOT EXISTS COMMON;
 
 -- ----------------------------------------------------------------------------------------------------
--- Create File Format for stage files
+-- Create File Formats for stage files
 -- ----------------------------------------------------------------------------------------------------
-CREATE FILE FORMAT IF NOT EXISTS BRONZE.CSV_FILE_FORMAT
+-- CSV Comma Delimeted
+CREATE FILE FORMAT IF NOT EXISTS BRONZE.FF_CSV_COMMA
 TYPE = 'CSV'
 COMPRESSION = 'AUTO'
 FIELD_DELIMITER = ','
@@ -35,6 +36,30 @@ RECORD_DELIMITER = '\n'
 SKIP_HEADER = 1
 FIELD_OPTIONALLY_ENCLOSED_BY = '\042'
 NULL_IF = ('\\N');
+
+-- CSV Pipe Delimeted
+CREATE OR REPLACE FILE FORMAT COMMON.FF_CSV_PIPE
+TYPE = 'CSV'
+FIELD_DELIMITER = '|'
+SKIP_HEADER = 1
+TRIM_SPACE = TRUE
+FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+NULL_IF = ('NULL', 'null', '')
+EMPTY_FIELD_AS_NULL = TRUE
+ERROR_ON_COLUMN_COUNT_MISMATCH = FALSE;
+
+-- JSON
+CREATE OR REPLACE FILE FORMAT COMMON.FF_JSON
+TYPE = 'JSON'
+STRIP_OUTER_ARRAY = TRUE
+IGNORE_UTF8_ERRORS = TRUE
+NULL_IF = ('NULL', 'null');
+
+-- PARQUET
+CREATE OR REPLACE FILE FORMAT COMMON.FF_PARQUET
+TYPE = 'PARQUET'
+SNAPPY_COMPRESSION = TRUE;
+
 
 -- ----------------------------------------------------------------------------------------------------
 -- Create File Stage

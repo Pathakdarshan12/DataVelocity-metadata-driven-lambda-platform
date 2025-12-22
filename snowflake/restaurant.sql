@@ -42,25 +42,24 @@ CREATE OR REPLACE TABLE BRONZE.RESTAURANT_BRZ (
     LONGITUDE_RAW VARCHAR,
 
     -- AUDIT COLUMNS
-    INGEST_RUN_ID STRING,
+    INGEST_RUN_ID INTEGER,
     CREATED_AT STRING,
     UPDATED_AT STRING
 )
 COMMENT = 'THIS IS THE RESTAURANT STAGE/RAW TABLE WHERE DATA WILL BE COPIED FROM INTERNAL STAGE USING COPY COMMAND. THIS IS AS-IS DATA REPRESETATION FROM THE SOURCE LOCATION. ALL THE COLUMNS ARE TEXT DATA TYPE EXCEPT THE AUDIT COLUMNS THAT ARE ADDED FOR TRACEABILITY.';
-
+ALTER TABLE BRONZE.LOCATION_BRZ CLUSTER BY (INGEST_RUN_ID);
 
 -- CREATING SEQUNCE TO GENERATE INGEST_RUN_ID
 CREATE OR REPLACE SEQUENCE SEQ_RESTAURANT_INGEST_RUN_ID START = 1 INCREMENT = 1;
 -- ----------------------------------------------------------------------------------------------------
 -- CREATE RESTAURANT_LOAD_ERROR
 -- ----------------------------------------------------------------------------------------------------
-CREATE OR REPLACE TABLE BRONZE.RESTAURANT_LOAD_ERROR (
-    error_id INTEGER IDENTITY(1,1) PRIMARY KEY,
-    ingest_run_id INTEGER,
-    error_type VARCHAR(100) NOT NULL,
-    error_column VARCHAR(200),
-    error_description VARCHAR(5000),
-    created_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+CREATE OR REPLACE TABLE BRONZE.RESTAURANT_LOAD_ERROR(
+    ERROR_ID INTEGER PRIMARY KEY,
+    VALIDATE_COLUMN VARCHAR(50),
+    VALIDATION_TYPE VARCHAR(30),
+    VALIDATION_ERROR_MSG VARCHAR(200),
+    INGEST_RUN_ID INTEGER
 );
 -- ----------------------------------------------------------------------------------------------------
 -- CREATE RESTAURANT_SLV
@@ -104,6 +103,8 @@ CREATE OR REPLACE TABLE GOLD.DIM_RESTAURANT (
     RESTAURANT_ADDRESS VARCHAR,
     LATITUDE NUMBER(9, 6),
     LONGITUDE NUMBER(9, 6),
+
+    -- AUDIT COLUMNS
     BATCH_ID VARCHAR,
     STATUS VARCHAR(10) DEFAULT 'ACTIVE',
     EFF_START_DT TIMESTAMP_TZ,
@@ -315,7 +316,6 @@ EXCEPTION
 END;
 $$;
 
-CALL BRONZE.SP_RESTAURANT_STAGE_TO_BRONZE('RESTAURANT_PIPELINE', 'restaurant_01-01-2025.csv');
 -- =====================================================
 -- PROCEDURE 2: BRONZE TO SILVER
 -- =====================================================
@@ -562,8 +562,6 @@ EXCEPTION
 END;
 $$;
 
-CALL SILVER.SP_RESTAURANT_BRONZE_TO_SILVER('RESTAURANT_PIPELINE', 1, '123');
-SELECT * FROM SILVER.RESTAURANT_SLV;
 -- =====================================================
 -- PROCEDURE 3: SILVER TO GOLD (WITH SCD2)
 -- =====================================================
@@ -851,44 +849,4 @@ EXCEPTION
         );
 END;
 $$;
-
-CALL GOLD.SP_RESTAURANT_SILVER_TO_GOLD('123');
-SELECT * FROM GOLD.DIM_RESTAURANT;
-ERROR;
 -- =====================================================
--- Query to see history of a specific restaurant
-SELECT * FROM GOLD.DIM_RESTAURANT
-WHERE RESTAURANT_ID = 123
-ORDER BY EFF_START_DT;
-
--- Query to see restaurants with price changes
-SELECT
-    RESTAURANT_ID,
-    NAME,
-    PRICING_FOR_TWO,
-    ACTIVE_FLAG,
-    OPEN_STATUS,
-    EFF_START_DT,
-    EFF_END_DT,
-    STATUS
-FROM GOLD.DIM_RESTAURANT
-WHERE RESTAURANT_ID IN (
-    SELECT RESTAURANT_ID
-    FROM GOLD.DIM_RESTAURANT
-    GROUP BY RESTAURANT_ID
-    HAVING COUNT(*) > 1
-)
-ORDER BY RESTAURANT_ID, EFF_START_DT;
-
--- Query to find restaurants that changed operating hours
-SELECT
-    RESTAURANT_ID,
-    RESTAURANT_NAME,
-    OPERATING_HOURS,
-    EFF_START_DT,
-    EFF_END_DT
-FROM GOLD.DIM_RESTAURANT
-WHERE STATUS = FALSE
-    AND EFF_END_DT IS NOT NULL
-ORDER BY EFF_END_DT DESC;
--- ====================================================================================================

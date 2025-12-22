@@ -5,21 +5,21 @@
 CREATE OR REPLACE TABLE COMMON.IMPORT_CONFIGURATION (
     CONFIGURATION_IMPORT_ID INTEGER PRIMARY KEY AUTOINCREMENT,
     PIPELINE_NAME VARCHAR(100) NOT NULL UNIQUE,
-    SOURCE_TYPE VARCHAR(50) NOT NULL,  -- FILE, DATABASE, API, STREAM
-    FILE_FORMAT VARCHAR(50),           -- CSV, JSON, PARQUET, etc.
-    SOURCE_LOCATION VARCHAR(500),      -- S3 path, table name, API endpoint
+    SOURCE_TYPE VARCHAR(50) NOT NULL,
+    FILE_FORMAT VARCHAR(50),
+    SOURCE_LOCATION VARCHAR(500),
     BRONZE_TABLE VARCHAR(100),
     LOAD_ERROR_TABLE VARCHAR(100),
-    STAGE_TABLE VARCHAR(100), -- TEMP TABLE TO PERFORM DQ VALIDATION CHECKS
+    STAGE_TABLE VARCHAR(100),
     SILVER_TABLE VARCHAR(100),
     GOLD_TABLE VARCHAR(100),
     ENABLED BOOLEAN DEFAULT TRUE,
-    LOAD_TYPE VARCHAR(20) DEFAULT 'FULL',  -- FULL, INCREMENTAL
-    SCHEDULE_CRON VARCHAR(100),        -- Cron expression for scheduling
+    LOAD_TYPE VARCHAR(20) DEFAULT 'FULL',
+    SCHEDULE_CRON VARCHAR(100),
     STAGE_TO_BRONZE_PROC VARCHAR(200),
     BRONZE_TO_SILVER_PROC VARCHAR(200),
     SILVER_TO_GOLD_PROC VARCHAR(200),
-    DEPENDENCY_PIPELINE VARCHAR(100),  -- Pipeline that must complete first
+    DEPENDENCY_PIPELINE VARCHAR(100),
     RETRY_COUNT INTEGER DEFAULT 3,
     TIMEOUT_MINUTES INTEGER DEFAULT 60,
     DESCRIPTION VARCHAR(1000),
@@ -63,7 +63,7 @@ VALUES
 
 ('CUSTOMER_ADDRESS_PIPELINE',
     'FILE',
-    '@BRONZE.CSV_STAGE/customer_address/',
+    '@BRONZE.CSV_STG/customer_address/',
     'BRONZE.FF_CSV_COMMA',
     'BRONZE.CUSTOMER_ADDRESS_BRZ',
     'BRONZE.CUSTOMER_ADDRESS_LOAD_ERROR',
@@ -77,7 +77,7 @@ VALUES
 
 ('DELIVERY_AGENT_PIPELINE',
     'FILE',
-    '@BRONZE.CSV_STAGE/delivery_agent/',
+    '@BRONZE.CSV_STG/delivery_agent/',
     'BRONZE.FF_CSV_COMMA',
     'BRONZE.DELIVERY_AGENT_BRZ',
     'BRONZE.DELIVERY_AGENT_LOAD_ERROR',
@@ -91,7 +91,7 @@ VALUES
 
 ('MENU_PIPELINE',
     'FILE',
-    '@BRONZE.CSV_STAGE/menu/',
+    '@BRONZE.CSV_STG/menu/',
     'BRONZE.FF_CSV_COMMA',
     'BRONZE.MENU_BRZ',
     'BRONZE.MENU_LOAD_ERROR',
@@ -115,58 +115,60 @@ VALUES
     'BRONZE.SP_RESTAURANT_STAGE_TO_BRONZE',
     'SILVER.SP_RESTAURANT_BRONZE_TO_SILVER',
     'GOLD.SP_RESTAURANT_SILVER_TO_GOLD',
-    'Menu master data pipeline with SCD Type 2'),
+    'Restaurant master data pipeline with SCD Type 2'),
 
 ('DELIVERY_PIPELINE',
     'FILE',
-    '@CSV_STAGE/delivery/',
+    '@BRONZE.CSV_STG/delivery/',
     'BRONZE.FF_CSV_COMMA',
     'BRONZE.DELIVERY_BRZ',
     'BRONZE.DELIVERY_LOAD_ERROR',
     'BRONZE.STG_DELIVERY_DQ',
     'SILVER.DELIVERY_SLV',
-    'GOLD.DIM_DELIVERY',
+    'GOLD.FACT_DELIVERY',
     'BRONZE.SP_DELIVERY_STAGE_TO_BRONZE',
     'SILVER.SP_DELIVERY_BRONZE_TO_SILVER',
     'GOLD.SP_DELIVERY_SILVER_TO_GOLD',
-    'Delivery master data pipeline with SCD Type 2');
+    'Delivery master data pipeline with SCD Type 2'),
 
--- ('ORDER_PIPELINE',
---     'FILE',
---     '@CSV_STAGE/order/',
---     'BRONZE.FF_CSV_COMMA',
---     'BRONZE.ORDER_BRZ',
---     'BRONZE.ORDER_LOAD_ERROR',
---     'BRONZE.STG_ORDER_DQ',
---     'GOLD.DIM_ORDER',
---     'BRONZE.ORDER_BRZ',
+('ORDER_PIPELINE',
+    'FILE',
+    '@BRONZE.CSV_STG/order/',
+    'BRONZE.FF_CSV_COMMA',
+    'BRONZE.ORDER_BRZ',
+    'BRONZE.ORDER_LOAD_ERROR',
+    'BRONZE.STG_ORDER_DQ',
+    'SILVER.ORDER_SLV',
+    'GOLD.FACT_ORDER',
+    'BRONZE.SP_ORDER_STAGE_TO_BRONZE',
+    'SILVER.SP_ORDER_BRONZE_TO_SILVER',
+    'GOLD.SP_ORDER_SILVER_TO_GOLD',
+    'Order master data pipeline with SCD Type 2'),
 
---     'BRONZE.SP_ORDER_STAGE_TO_BRONZE',
---     'SILVER.SP_ORDER_BRONZE_TO_SILVER',
---     'GOLD.SP_ORDER_SILVER_TO_GOLD',
---     'Order master data pipeline with SCD Type 2'),
-
--- ('ORDER_ITEM_PIPELINE',
---     'FILE',
---     '@CSV_STAGE/order_item/',
---     'BRONZE.FF_CSV_COMMA',
---     'BRONZE', 'ORDER_ITEM_BRZ', 'CSV',
---     'BRONZE.SP_ORDER_ITEM_STAGE_TO_BRONZE',
---     'SILVER.SP_ORDER_ITEM_BRONZE_TO_SILVER',
---     'GOLD.SP_ORDER_ITEM_SILVER_TO_GOLD',
---     'Order Item master data pipeline with SCD Type 2');
-
+('ORDER_ITEM_PIPELINE',
+    'FILE',
+    '@BRONZE.CSV_STG/order_item/',
+    'BRONZE.FF_CSV_COMMA',
+    'BRONZE.ORDER_ITEM_BRZ',
+    'BRONZE.ORDER_ITEM_LOAD_ERROR',
+    'BRONZE.STG_ORDER_ITEM_DQ',
+    'SILVER.ORDER_ITEM_SLV',
+    'GOLD.FACT_ORDER_ITEM',
+    'BRONZE.SP_ORDER_ITEM_STAGE_TO_BRONZE',
+    'SILVER.SP_ORDER_ITEM_BRONZE_TO_SILVER',
+    'GOLD.SP_ORDER_ITEM_SILVER_TO_GOLD',
+    'Order Item master data pipeline with SCD Type 2');
 -- =====================================================
 -- BATCH TABLE - STORES BATCH EXECUTION DATA
 -- =====================================================
 
 CREATE OR REPLACE TABLE COMMON.BATCH (
-    BATCH_ID VARCHAR(36) PRIMARY KEY,              -- Generated UUID for each run
+    BATCH_ID VARCHAR(36) PRIMARY KEY,
     PIPELINE_NAME VARCHAR(100) NOT NULL,
     LAST_BATCH_EXECUTED_AT TIMESTAMP_NTZ,
 
     -- Stage Execution Tracking
-    STAGE_TO_BRONZE_STATUS VARCHAR(20),            -- SUCCESS, FAILED, SKIPPED
+    STAGE_TO_BRONZE_STATUS VARCHAR(20),
     BRONZE_INSERT_RECORDS INTEGER DEFAULT 0,
 
     -- Bronze to Silver Tracking
@@ -183,8 +185,6 @@ CREATE OR REPLACE TABLE COMMON.BATCH (
     BATCH_LOG VARIANT
 )
 COMMENT = 'Master tracking table storing all execution details for each batch run';
-
-SELECT * FROM COMMON.IMPORT_CONFIGURATION;
 
 -- =====================================================
 -- INGEST RUN TABLE
@@ -485,68 +485,65 @@ BEGIN
             )
         );
 
- EXCEPTION
-     WHEN OTHER THEN
-         -- Log critical failure
-         BEGIN
-             UPDATE COMMON.BATCH
-             SET
-                 BATCH_LOG = OBJECT_CONSTRUCT(
-                     'critical_error', SQLERRM,
-                     'error_timestamp', CURRENT_TIMESTAMP(),
-                     'batch_start_time', :v_batch_start_time,
-                     'stage_to_bronze_status', :v_stb_status,
-                     'bronze_to_silver_status', :v_bts_status,
-                     'silver_to_gold_status', :v_stg_status
-                 )
-             WHERE BATCH_ID = :v_batch_id;
-         EXCEPTION
-             WHEN OTHER THEN
-                 NULL;
-         END;
+-- EXCEPTION
+--     WHEN OTHER THEN
+--         -- Log critical failure
+--         BEGIN
+--             UPDATE COMMON.BATCH
+--             SET
+--                 BATCH_LOG = OBJECT_CONSTRUCT(
+--                     'critical_error', SQLERRM,
+--                     'error_timestamp', CURRENT_TIMESTAMP(),
+--                     'batch_start_time', :v_batch_start_time,
+--                     'stage_to_bronze_status', :v_stb_status,
+--                     'bronze_to_silver_status', :v_bts_status,
+--                     'silver_to_gold_status', :v_stg_status
+--                 )
+--             WHERE BATCH_ID = :v_batch_id;
+--         EXCEPTION
+--             WHEN OTHER THEN
+--                 NULL;
+--         END;
 
-         RETURN 'CRITICAL FAILURE | BATCH_ID=' || :v_batch_id || ' | ' || SQLERRM;
+--         RETURN 'CRITICAL FAILURE | BATCH_ID=' || :v_batch_id || ' | ' || SQLERRM;
+
 END;
 $$;
 
 -- Execute the pipeline
---CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_01-01-2025.csv');
---CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_02-01-2025.csv');
---CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_03-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_01-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_02-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_03-01-2025.csv');
 
 CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_02-01-2025.csv');
 CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_02-01-2025.csv');
 CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_03-01-2025.csv');
 CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_04-01-2025_invalid.csv');
 
---CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_01-01-2025.csv');
---CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_02-01-2025.csv');
---CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_03-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_01-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_02-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_03-01-2025.csv');
 
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_01-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_01-01-2025.csv');
 CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_03-01-2025csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_04-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_05-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_06-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_03-01-2025csv');
+CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_04-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_05-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_06-01-2025.csv');
 
---CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_01-01-2025.csv');
---CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_02-01-2025.csv.csv');
---CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_03-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_01-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_02-01-2025.csv.csv');
+CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_03-01-2025.csv');
 
-CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', 'restaurant_01-01-2025.csv');
+CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/restaurant/restaurant_01-01-2025.csv');
 CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', 'restaurant_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', 'restaurant_03-01-2025.csv');
---
---CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/delivery-initial-load.csv');
---CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/day-01-delivery.csv');
---CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/day-02-delivery.csv');
+CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/restaurant/restaurant_03-01-2025.csv');
 
---CALL COMMON.SP_IMPORT_MASTER('ORDER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order/orders-initial.csv');
---CALL COMMON.SP_IMPORT_MASTER('ORDER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order/day-01-orders.csv');
---CALL COMMON.SP_IMPORT_MASTER('ORDER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order/day-02-orders.csv');
+CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/delivery-initial-load.csv');
+CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/day-01-delivery.csv');
+CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/day-02-delivery.csv');
 
---CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/order-item-initial.csv');
---CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/day-01-order-item.csv');
---CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/day-02-order-item.csv');
---CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/order-item-initial-v2.csv');
+CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/order-item-initial.csv');
+CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/day-01-order-item.csv');
+CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/day-02-order-item.csv');
+CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/order-item-initial-v2.csv');

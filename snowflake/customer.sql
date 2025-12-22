@@ -97,10 +97,7 @@ ALTER TABLE GOLD.DIM_CUSTOMER CLUSTER BY (CUSTOMER_ID, STATUS, EFF_START_DT);
 -- =====================================================
 -- PROCEDURE 1: STAGE TO BRONZE
 -- =====================================================
-CREATE OR REPLACE PROCEDURE BRONZE.SP_CUSTOMER_STAGE_TO_BRONZE(
-    P_PIPELINE_NAME VARCHAR,
-    P_FILE_NAME VARCHAR
-)
+CREATE OR REPLACE PROCEDURE BRONZE.SP_CUSTOMER_STAGE_TO_BRONZE(P_PIPELINE_NAME VARCHAR, P_FILE_NAME VARCHAR)
 RETURNS VARIANT
 LANGUAGE SQL
 EXECUTE AS OWNER
@@ -125,14 +122,14 @@ BEGIN
     FROM COMMON.IMPORT_CONFIGURATION
     WHERE PIPELINE_NAME = :P_PIPELINE_NAME;
 
-    -- Construct full file path
+    -- Construct file path
     V_FILE_PATH := V_SOURCE_LOCATION || P_FILE_NAME;
 
     -- Start explicit transaction
     BEGIN TRANSACTION;
 
     -- Create temp table
-    CREATE OR REPLACE TEMPORARY TABLE TEMP_CUSTOMER_LOAD(
+    CREATE OR REPLACE TEMPORARY TABLE BRONZE.TEMP_CUSTOMER_LOAD(
         NAME STRING,
         MOBILE STRING,
         EMAIL STRING,
@@ -145,26 +142,26 @@ BEGIN
 
     -- Copy data from stage
     EXECUTE IMMEDIATE
-'COPY INTO TEMP_CUSTOMER_LOAD (
-    NAME, MOBILE, EMAIL, LOGIN_BY_USING, GENDER, DOB, ANNIVERSARY, PREFERENCES
-)
-FROM (
-    SELECT
-        $1::STRING,
-        $2::STRING,
-        $3::STRING,
-        $4::STRING,
-        $5::STRING,
-        $6::STRING,
-        $7::STRING,
-        $8::STRING
-    FROM ''' || V_FILE_PATH || '''
-)
-FILE_FORMAT = (FORMAT_NAME = ''' || V_FILE_FORMAT || ''')
-ON_ERROR = ABORT_STATEMENT';
+    '
+        COPY INTO TEMP_CUSTOMER_LOAD (NAME, MOBILE, EMAIL, LOGIN_BY_USING, GENDER, DOB, ANNIVERSARY, PREFERENCES)
+        FROM (
+            SELECT
+                $1::STRING,
+                $2::STRING,
+                $3::STRING,
+                $4::STRING,
+                $5::STRING,
+                $6::STRING,
+                $7::STRING,
+                $8::STRING
+            FROM '''''' || V_FILE_PATH || ''''''
+        )
+        FILE_FORMAT = (FORMAT_NAME = '''''' || V_FILE_FORMAT || '''''')
+        ON_ERROR = ABORT_STATEMENT
+    ';
 
     -- Get row count
-    SELECT COUNT(*) INTO :V_ROWS_INSERTED FROM TEMP_CUSTOMER_LOAD;
+    SELECT COUNT(*) INTO :V_ROWS_INSERTED FROM BRONZE.TEMP_CUSTOMER_LOAD;
 
     -- Validate data loaded
     IF (V_ROWS_INSERTED = 0) THEN
@@ -201,7 +198,7 @@ ON_ERROR = ABORT_STATEMENT';
     COMMIT;
 
     -- Cleanup
-    DROP TABLE IF EXISTS TEMP_CUSTOMER_LOAD;
+    DROP TABLE IF EXISTS BRONZE.TEMP_CUSTOMER_LOAD;
 
     V_END_TIME := CURRENT_TIMESTAMP();
     V_EXECUTION_DURATION := DATEDIFF(SECOND, V_START_TIME, V_END_TIME);
@@ -238,27 +235,6 @@ EXCEPTION
         );
 END;
 $$;
-
-CALL SP_CUSTOMER_STAGE_TO_BRONZE(
-  'CUSTOMER_PIPELINE',
-  'customer_01-01-2025.csv'
-);
-
-LIST @BRONZE.CSV_STG/customer;
-
-SELECT
-    PIPELINE_NAME,
-    SOURCE_LOCATION,
-    FILE_FORMAT
-FROM COMMON.IMPORT_CONFIGURATION
-WHERE PIPELINE_NAME = 'CUSTOMER_PIPELINE';
-
-SELECT SOURCE_LOCATION, FILE_FORMAT
-FROM COMMON.IMPORT_CONFIGURATION
-WHERE PIPELINE_NAME = 'CUSTOMER_PIPELINE';
-
-SELECT * FROM BRONZE.CUSTOMER_BRZ;
-
 -- =====================================================
 -- BRONZE TO SILVER PROCEDURE WITH DQ AND MERGE
 -- =====================================================
@@ -756,68 +732,4 @@ EXCEPTION
         );
 END;
 $$;
-
 -- =====================================================
--- USAGE EXAMPLES
--- =====================================================
-
--- Execute the procedure
-CALL SP_CUSTOMER_STAGE_TO_BRONZE('CUSTOMER_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer/customer_02-01-2025.csv');
-
-CALL SILVER.SP_CUSTOMER_BRONZE_TO_SILVER('CUSTOMER_PIPELINE', 1, '123');
-CALL GOLD.SP_CUSTOMER_SILVER_TO_GOLD('123');
-
-SHOW PROCEDURES;
-
--- Check results
--- SELECT * FROM GOLD.DIM_CUSTOMER WHERE BATCH_ID = 'batch-123-456';
-
--- View SCD2 history for a customer
--- SELECT
---     CUSTOMER_ID,
---     NAME,
---     EMAIL,
---     MOBILE,
---     STATUS,
---     EFF_START_DT,
---     EFF_END_DT,
---     BATCH_ID
--- FROM GOLD.DIM_CUSTOMER
--- WHERE CUSTOMER_ID = 123
--- ORDER BY EFF_START_DT DESC;
-
--- =====================================================
--- VALIDATION QUERIES
--- =====================================================
-
--- Check for duplicate active records (should return 0)
--- SELECT
---     CUSTOMER_ID,
---     COUNT(*) AS ACTIVE_COUNT
--- FROM GOLD.DIM_CUSTOMER
--- WHERE STATUS = 'ACTIVE'
--- GROUP BY CUSTOMER_ID
--- HAVING COUNT(*) > 1;
-
--- Audit changes by batch
--- SELECT
---     BATCH_ID,
---     COUNT(DISTINCT CUSTOMER_ID) AS UNIQUE_CUSTOMERS,
---     COUNT(*) AS TOTAL_RECORDS,
---     SUM(CASE WHEN STATUS = 'ACTIVE' THEN 1 ELSE 0 END) AS ACTIVE_RECORDS,
---     SUM(CASE WHEN STATUS = 'INACTIVE' THEN 1 ELSE 0 END) AS INACTIVE_RECORDS
--- FROM GOLD.DIM_CUSTOMER
--- GROUP BY BATCH_ID
--- ORDER BY BATCH_ID DESC;
-
--- Find customers with most changes
--- SELECT
---     CUSTOMER_ID,
---     COUNT(*) AS VERSION_COUNT,
---     MIN(EFF_START_DT) AS FIRST_SEEN,
---     MAX(EFF_START_DT) AS LAST_CHANGED
--- FROM GOLD.DIM_CUSTOMER
--- GROUP BY CUSTOMER_ID
--- HAVING COUNT(*) > 1
--- ORDER BY VERSION_COUNT DESC
--- LIMIT 10;
