@@ -27,7 +27,7 @@ CREATE SCHEMA IF NOT EXISTS COMMON;
 -- ----------------------------------------------------------------------------------------------------
 -- Create File Formats for stage files
 -- ----------------------------------------------------------------------------------------------------
--- CSV Comma Delimeted
+-- CSV Comma Delimited
 CREATE FILE FORMAT IF NOT EXISTS BRONZE.FF_CSV_COMMA
 TYPE = 'CSV'
 COMPRESSION = 'AUTO'
@@ -37,7 +37,7 @@ SKIP_HEADER = 1
 FIELD_OPTIONALLY_ENCLOSED_BY = '\042'
 NULL_IF = ('\\N');
 
--- CSV Pipe Delimeted
+-- CSV Pipe Delimited
 CREATE OR REPLACE FILE FORMAT COMMON.FF_CSV_PIPE
 TYPE = 'CSV'
 FIELD_DELIMITER = '|'
@@ -59,7 +59,6 @@ NULL_IF = ('NULL', 'null');
 CREATE OR REPLACE FILE FORMAT COMMON.FF_PARQUET
 TYPE = 'PARQUET'
 SNAPPY_COMPRESSION = TRUE;
-
 
 -- ----------------------------------------------------------------------------------------------------
 -- Create File Stage
@@ -87,7 +86,7 @@ TO_VARCHAR('** PII **');
 CREATE OR REPLACE MASKING POLICY
 COMMON.EMAIL_MASKING_POLICY AS (EMAIL_TEXT STRING)
 RETURNS STRING ->
-TO_VARCHAR('** EAMIL **');
+TO_VARCHAR('** EMAIL **');
 -- ----------------------------------------------------------------------------------------------------
 CREATE OR REPLACE MASKING POLICY
 COMMON.PHONE_MASKING_POLICY AS (PHONE STRING)
