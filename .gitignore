@@ -2,10 +2,10 @@
 /venv/
 /.env
 venv/
-swiggy/target/
-swiggy/logs/
-swiggy/dbt_packages/
-swiggy/dbt_internal_packages/
+datavelocity_dbt/target/
+datavelocity_dbt/logs/
+datavelocity_dbt/dbt_packages/
+datavelocity_dbt/dbt_internal_packages/
 .idea/
 .vscode/
 *.pyc
@@ -15,10 +15,27 @@ __pycache__/
 /venv/Scripts/
 .env
 /venv/Scripts/dotenv.exe
-/delivery-connector.json
-/orders-connector.json
+delivery-connector.json
+orders-connector.json
 /snowflake_key.p8
 /snowflake_key.pub
 /snowflake_private_key.p8
 /snowflake_public_key.pub
 /order-items-connector.json
+
+# Cryptographic keys
+*.p8
+*.pem
+*.key
+*.der
+*.crt
+
+# Snowflake RSA keys
+snowflake_key.p8
+snowflake_private_key.p8
+snowflake_public_key.pub
+snowflake_key.pub
+
+# Connector configs (contain secrets)
+*-connector.json
+!*-connector.template.json
