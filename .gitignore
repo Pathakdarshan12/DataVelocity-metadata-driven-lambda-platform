@@ -21,3 +21,4 @@ __pycache__/
 /snowflake_key.pub
 /snowflake_private_key.p8
 /snowflake_public_key.pub
+/order-items-connector.json
