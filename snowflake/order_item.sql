@@ -35,7 +35,7 @@ CREATE OR REPLACE TABLE BRONZE.ORDER_ITEM_BRZ (
 ALTER TABLE BRONZE.ORDER_ITEM_BRZ CLUSTER BY (INGEST_RUN_ID);
 
 -- CREATING SEQUNCE TO GENERATE INGEST_RUN_ID
-CREATE OR REPLACE SEQUENCE SEQ_ORDER_ITEM_INGEST_RUN_ID START = 1 INCREMENT = 1;
+CREATE OR REPLACE SEQUENCE BRONZE.SEQ_ORDER_ITEM_INGEST_RUN_ID START = 1 INCREMENT = 1;
 
 -- ----------------------------------------------------------------------------------------------------
 -- CREATE ORDER_ITEM_LOAD_ERROR
@@ -77,14 +77,14 @@ CREATE OR REPLACE TABLE GOLD.FACT_ORDER_ITEM (
     PRICE NUMBER(10, 2),
     SUBTOTAL NUMBER(10, 2),
     ORDER_TIMESTAMP TIMESTAMP_TZ,
-    BATCH_ID STRING(36),
+    BATCH_ID STRING(50),
     CREATED_AT TIMESTAMP_TZ
 )
 COMMENT = 'FACT TABLE FOR ORDER ITEMS – APPEND ONLY';
 ALTER TABLE GOLD.FACT_ORDER_ITEM CLUSTER BY (DAY(ORDER_TIMESTAMP),MONTH(ORDER_TIMESTAMP));
 
 -- =====================================================
--- ORDER_ITEM PROCEDURES (APPEND-ONLY)
+-- ORDER_ITEM PROCEDURES
 -- =====================================================
 
 -- ----------------------------------------------------------------------------------------------------
@@ -109,19 +109,15 @@ DECLARE
 BEGIN
     V_START_TIME := CURRENT_TIMESTAMP();
 
-    -- GET PIPELINE CONFIGURATION
     SELECT SOURCE_LOCATION, FILE_FORMAT
     INTO :V_SOURCE_LOCATION, :V_FILE_FORMAT
     FROM COMMON.IMPORT_CONFIGURATION
     WHERE PIPELINE_NAME = :P_PIPELINE_NAME;
 
-    -- Construct file path
     V_FILE_PATH := V_SOURCE_LOCATION || P_FILE_NAME;
 
-    -- Start explicit transaction
     BEGIN TRANSACTION;
 
-    -- CREATE TEMP TABLE
     CREATE OR REPLACE TEMPORARY TABLE TEMP_ORDER_ITEM_LOAD(
         ORDER_ID TEXT,
         MENU_ID TEXT,
@@ -132,28 +128,24 @@ BEGIN
     );
 
     EXECUTE IMMEDIATE
-    '
-        COPY INTO TEMP_ORDER_ITEM_LOAD (
-            ORDER_ID, MENU_ID, QUANTITY, PRICE, SUBTOTAL, ORDER_TIMESTAMP
-        )
-        FROM (
-            SELECT
-                $1::STRING AS ORDER_ID,
-                $2::STRING AS MENU_ID,
-                $3::STRING AS QUANTITY,
-                $4::STRING AS PRICE,
-                $5::STRING AS SUBTOTAL,
-                $6::STRING AS ORDER_TIMESTAMP
-        FROM ''' || V_FILE_PATH || '''
+    'COPY INTO TEMP_ORDER_ITEM_LOAD (
+        ORDER_ID, MENU_ID, QUANTITY, PRICE, SUBTOTAL, ORDER_TIMESTAMP
+    )
+    FROM (
+        SELECT
+            $1::STRING AS ORDER_ID,
+            $2::STRING AS MENU_ID,
+            $3::STRING AS QUANTITY,
+            $4::STRING AS PRICE,
+            $5::STRING AS SUBTOTAL,
+            $6::STRING AS ORDER_TIMESTAMP
+        FROM ' || V_FILE_PATH || '
     )
     FILE_FORMAT = (FORMAT_NAME = ''' || V_FILE_FORMAT || ''')
-    ON_ERROR = ABORT_STATEMENT
-    ';
+    ON_ERROR = ABORT_STATEMENT';
 
-    -- Get row count
     SELECT COUNT(*) INTO :V_ROWS_INSERTED FROM TEMP_ORDER_ITEM_LOAD;
 
-    -- Validate data loaded
     IF (V_ROWS_INSERTED = 0) THEN
         ROLLBACK;
         DROP TABLE IF EXISTS TEMP_ORDER_ITEM_LOAD;
@@ -166,11 +158,10 @@ BEGIN
         );
     END IF;
 
-    -- Consume sequence
     SELECT SWIGGY.BRONZE.SEQ_ORDER_ITEM_INGEST_RUN_ID.NEXTVAL INTO :V_INGEST_RUN_ID;
-    A
+
     INSERT INTO BRONZE.ORDER_ITEM_BRZ (
-        ORDER_ITEM_ID, ORDER_ID, MENU_ID, QUANTITY, PRICE, SUBTOTAL,ORDER_TIMESTAMP,
+        ORDER_ITEM_ID, ORDER_ID, MENU_ID, QUANTITY, PRICE, SUBTOTAL, ORDER_TIMESTAMP,
         ORDER_ID_RAW, MENU_ID_RAW, QUANTITY_RAW, PRICE_RAW, SUBTOTAL_RAW, ORDER_TIMESTAMP_RAW,
         CREATED_AT, UPDATED_AT, INGEST_RUN_ID
     )
@@ -182,24 +173,20 @@ BEGIN
         TRY_TO_NUMBER(PRICE, 10, 2),
         TRY_TO_NUMBER(SUBTOTAL, 10, 2),
         TO_TIMESTAMP_TZ(ORDER_TIMESTAMP),
-
-        ORDER_ID_,
+        ORDER_ID,
         MENU_ID,
         QUANTITY,
         PRICE,
         SUBTOTAL,
         ORDER_TIMESTAMP,
-
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP(),
         :V_INGEST_RUN_ID
     FROM TEMP_ORDER_ITEM_LOAD;
 
-    -- Commit transaction
     COMMIT;
 
-    -- Cleanup
-    DROP TABLE IF EXISTS BRONZE.TEMP_ORDER_ITEM_LOAD;
+    DROP TABLE IF EXISTS TEMP_ORDER_ITEM_LOAD;
 
     V_END_TIME := CURRENT_TIMESTAMP();
     V_EXECUTION_DURATION := DATEDIFF(SECOND, V_START_TIME, V_END_TIME);
@@ -212,35 +199,13 @@ BEGIN
         'INGEST_RUN_ID', V_INGEST_RUN_ID,
         'EXECUTION_TIME_SEC', V_EXECUTION_DURATION
     );
-
-EXCEPTION
-    WHEN OTHER THEN
-        -- Rollback everything including sequence consumption
-        ROLLBACK;
-
-        V_ERROR_MESSAGE := SQLERRM;
-        V_END_TIME := CURRENT_TIMESTAMP();
-        V_EXECUTION_DURATION := DATEDIFF(SECOND, V_START_TIME, V_END_TIME);
-
-        -- Cleanup
-        DROP TABLE IF EXISTS TEMP_ORDER_ITEM_LOAD;
-
-        RETURN OBJECT_CONSTRUCT(
-            'STATUS', 'FAILED',
-            'ERROR', V_ERROR_MESSAGE,
-            'FILE_PATH', V_FILE_PATH,
-            'ROWS_INSERTED', 0,
-            'INGEST_RUN_ID', 0,
-            'EXECUTION_TIME_SEC', V_EXECUTION_DURATION,
-            'NOTE', 'Transaction rolled back - no sequence consumed'
-        );
 END;
 $$;
 
 -- ----------------------------------------------------------------------------------------------------
 -- PROCEDURE: ORDER_ITEM BRONZE TO SILVER
 -- ----------------------------------------------------------------------------------------------------
-CREATE OR REPLACE PROCEDURE SILVER.SP_ORDER_BRONZE_TO_SILVER(
+CREATE OR REPLACE PROCEDURE SILVER.SP_ORDER_ITEM_BRONZE_TO_SILVER(
     P_PIPELINE_NAME STRING,
     P_INGEST_RUN_ID INTEGER,
     P_BATCH_ID STRING
@@ -539,11 +504,3 @@ EXCEPTION
 END;
 $$;
 -- ----------------------------------------------------------------------------------------------------
-
--- SELECT
---     UUID_STRING()                    AS OrderID,
---     UNIFORM(1, 500, RANDOM())        AS MenuID,
---     UNIFORM(1, 5, RANDOM())          AS Quantity,
---     ROUND(UNIFORM(50, 500, RANDOM()), 2) AS Price,
---     Quantity * Price                 AS Subtotal
--- FROM TABLE(GENERATOR(ROWCOUNT => 1000));

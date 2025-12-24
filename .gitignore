@@ -29,7 +29,7 @@ orders-connector.json
 *.key
 *.der
 *.crt
-
+*.gitkeep
 # Snowflake RSA keys
 snowflake_key.p8
 snowflake_private_key.p8
