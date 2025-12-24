@@ -1,7 +1,7 @@
 -- ==============================================================================================================================================================
 -- ORDER
 -- ==============================================================================================================================================================
--- CHANGE CONVARCHAR
+-- CHANGE CONTEXT
 USE DATABASE SWIGGY;
 USE SCHEMA BRONZE;
 USE WAREHOUSE ADHOC_WH;
@@ -11,7 +11,7 @@ USE WAREHOUSE ADHOC_WH;
 -- --------------------------------------------------------------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE TABLE BRONZE.ORDER_BRZ (
     ORDER_ID VARCHAR PRIMARY KEY COMMENT 'PRIMARY KEY (SOURCE SYSTEM)',
-    CUSTOMER_ID INTEGER COMMENT 'CUSTOMER FK(SOURCE SYSTEM)',
+    CUSTOMER_ID VARCHAR COMMENT 'CUSTOMER FK(SOURCE SYSTEM)',
     RESTAURANT_ID INTEGER COMMENT 'RESTAURANT FK(SOURCE SYSTEM)',
     ORDER_DATE DATE,
     TOTAL_AMOUNT NUMBER(10, 2),
@@ -19,7 +19,6 @@ CREATE OR REPLACE TABLE BRONZE.ORDER_BRZ (
     PAYMENT_METHOD VARCHAR,
 
     -- RAW_COLUMNS
-    ORDER_ID_RAW VARCHAR,
     CUSTOMER_ID_RAW VARCHAR,
     RESTAURANT_ID_RAW VARCHAR,
     ORDER_DATE_RAW VARCHAR,
@@ -42,7 +41,7 @@ CREATE OR REPLACE SEQUENCE SEQ_ORDER_INGEST_RUN_ID START = 1 INCREMENT = 1;
 -- --------------------------------------------------------------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE TABLE SILVER.ORDER_SLV (
     ORDER_ID VARCHAR PRIMARY KEY COMMENT 'PRIMARY KEY (SOURCE SYSTEM)',
-    CUSTOMER_ID INTEGER COMMENT 'CUSTOMER FK(SOURCE SYSTEM)',
+    CUSTOMER_ID VARCHAR COMMENT 'CUSTOMER FK(SOURCE SYSTEM)',
     RESTAURANT_ID INTEGER COMMENT 'RESTAURANT FK(SOURCE SYSTEM)',
     ORDER_DATE TIMESTAMP_TZ,
     TOTAL_AMOUNT NUMBER(10, 2),
@@ -55,12 +54,14 @@ CREATE OR REPLACE TABLE SILVER.ORDER_SLV (
     UPDATED_AT TIMESTAMP_TZ
 );
 
+
+
 -- --------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREATE FACT_ORDER
 -- --------------------------------------------------------------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE TABLE GOLD.FACT_ORDER (
     ORDER_ID VARCHAR PRIMARY KEY COMMENT 'BUSINESS KEY (SOURCE SYSTEM)',
-    CUSTOMER_ID INTEGER COMMENT 'CUSTOMER FK(SOURCE SYSTEM)',
+    CUSTOMER_ID VARCHAR COMMENT 'CUSTOMER FK(SOURCE SYSTEM)',
     RESTAURANT_ID INTEGER COMMENT 'RESTAURANT FK(SOURCE SYSTEM)',
     ORDER_DATE TIMESTAMP_TZ,
     TOTAL_AMOUNT NUMBER(10, 2),
@@ -122,7 +123,6 @@ BEGIN
     BEGIN TRANSACTION;
 
     CREATE OR REPLACE TEMPORARY TABLE TEMP_ORDER_LOAD(
-        ORDER_ID VARCHAR,
         CUSTOMER_ID VARCHAR,
         RESTAURANT_ID VARCHAR,
         ORDER_DATE VARCHAR,
@@ -134,18 +134,17 @@ BEGIN
     EXECUTE IMMEDIATE
     '
         COPY INTO TEMP_ORDER_LOAD (
-            ORDER_ID, CUSTOMER_ID, RESTAURANT_ID, ORDER_DATE,
+            CUSTOMER_ID, RESTAURANT_ID, ORDER_DATE,
             TOTAL_AMOUNT, STATUS, PAYMENT_METHOD
         )
         FROM (
             SELECT
-                $1::STRING AS ORDER_ID,
-                $2::STRING AS CUSTOMER_ID,
-                $3::STRING AS RESTAURANT_ID,
-                $4::STRING AS ORDER_DATE,
-                $5::STRING AS TOTAL_AMOUNT,
-                $6::STRING AS STATUS,
-                $7::STRING AS PAYMENT_METHOD
+                $1::STRING AS CUSTOMER_ID,
+                $2::STRING AS RESTAURANT_ID,
+                $3::STRING AS ORDER_DATE,
+                $4::STRING AS TOTAL_AMOUNT,
+                $5::STRING AS STATUS,
+                $6::STRING AS PAYMENT_METHOD
         FROM ''' || V_FILE_PATH || '''
     )
     FILE_FORMAT = (FORMAT_NAME = ''' || V_FILE_FORMAT || ''')
@@ -179,7 +178,6 @@ BEGIN
         TOTAL_AMOUNT,
         STATUS,
         PAYMENT_METHOD,
-        ORDER_ID_RAW,
         CUSTOMER_ID_RAW,
         RESTAURANT_ID_RAW,
         ORDER_DATE_RAW,
@@ -191,14 +189,13 @@ BEGIN
         UPDATED_AT
     )
     SELECT
-        TO_VARCHAR(ORDER_ID),
-        TRY_TO_NUMBER(CUSTOMER_ID),
+        UUID_STRING(),
+        TO_VARCHAR(CUSTOMER_ID),
         TRY_TO_NUMBER(RESTAURANT_ID),
         TRY_TO_DATE(ORDER_DATE),
         TRY_TO_NUMBER(TOTAL_AMOUNT, 10, 2),
         TO_VARCHAR(STATUS),
         TO_VARCHAR(PAYMENT_METHOD),
-        ORDER_ID,
         CUSTOMER_ID,
         RESTAURANT_ID,
         ORDER_DATE,
@@ -661,107 +658,3 @@ EXCEPTION
 END;
 $$;
 -- ==============================================================================================================================================================
--- KAFKA INTEGRETION
--- ==============================================================================================================================================================
--- SILVER.ORDERS_STREAM_SLV
-CREATE OR REPLACE TABLE SILVER.ORDERS_STREAM_SLV (
-    KAFKA_OFFSET NUMBER,                      -- For idempotency
-    KAFKA_PARTITION NUMBER,
-    KAFKA_TIMESTAMP TIMESTAMP_TZ,
-    EVENT_TYPE VARCHAR(50),                   -- ORDER_CREATED, ORDER_UPDATED
-    EVENT_TIMESTAMP TIMESTAMP_TZ,
-
-    ORDER_ID INTEGER,
-    CUSTOMER_ID INTEGER,
-    RESTAURANT_ID INTEGER,
-    ORDER_DATE TIMESTAMP_TZ,
-    TOTAL_AMOUNT NUMBER(10, 2),
-    STATUS VARCHAR(50),
-    PAYMENT_METHOD VARCHAR(50),
-
-    METADATA VARIANT,                         -- Store entire Kafka message
-    INGESTED_AT TIMESTAMP_TZ DEFAULT CURRENT_TIMESTAMP(),
-    PROCESSED_TO_GOLD BOOLEAN DEFAULT FALSE,  -- Flag for task processing
-    BATCH_ID VARCHAR(36)
-);
-
--- Create streams to track changes
-CREATE OR REPLACE STREAM STREAM_ORDERS_CHANGES
-ON TABLE SILVER.ORDERS_STREAM_SLV
-APPEND_ONLY = TRUE;  -- Only capture INSERTs from Kafka
-
--- Task to process orders every 5 minutes
-CREATE OR REPLACE TASK TASK_ORDERS_STREAM_TO_GOLD
-    WAREHOUSE = ADHOC_WH
-    SCHEDULE = '5 MINUTE'
-    WHEN SYSTEM$STREAM_HAS_DATA('STREAM_ORDERS_CHANGES')
-AS
-CALL GOLD.SP_ORDERS_STREAM_TO_GOLD();
-
--- Resume tasks
-ALTER TASK TASK_ORDERS_STREAM_TO_GOLD RESUME;
-
-CREATE OR REPLACE PROCEDURE GOLD.SP_ORDERS_STREAM_TO_GOLD()
-RETURNS VARIANT
-LANGUAGE SQL
-AS
-$$
-DECLARE
-    V_BATCH_ID STRING;
-    V_ROWS_PROCESSED INTEGER DEFAULT 0;
-BEGIN
-    V_BATCH_ID := 'STREAM_' || UUID_STRING();
-
-    -- Process new orders from stream
-    MERGE INTO GOLD.FACT_ORDER AS TGT
-    USING (
-        SELECT
-            ORDER_ID,
-            CUSTOMER_ID,
-            RESTAURANT_ID,
-            ORDER_DATE,
-            TOTAL_AMOUNT,
-            STATUS,
-            PAYMENT_METHOD,
-            EVENT_TIMESTAMP
-        FROM STREAM_ORDERS_CHANGES
-        WHERE EVENT_TYPE IN ('ORDER_CREATED', 'ORDER_UPDATED')
-    ) AS SRC
-    ON TGT.ORDER_ID = SRC.ORDER_ID
-
-    WHEN MATCHED AND TGT.CURRENT_STATUS != SRC.STATUS THEN
-        UPDATE SET
-            CURRENT_STATUS = SRC.STATUS,
-            TOTAL_AMOUNT = SRC.TOTAL_AMOUNT,
-            STATUS_UPDATED_AT = SRC.EVENT_TIMESTAMP
-
-    WHEN NOT MATCHED THEN
-        INSERT (
-            ORDER_ID, CUSTOMER_ID, RESTAURANT_ID, ORDER_DATE,
-            TOTAL_AMOUNT, CURRENT_STATUS, INITIAL_STATUS,
-            PAYMENT_METHOD, STATUS_UPDATED_AT, BATCH_ID, CREATED_AT
-        )
-        VALUES (
-            SRC.ORDER_ID, SRC.CUSTOMER_ID, SRC.RESTAURANT_ID,
-            SRC.ORDER_DATE, SRC.TOTAL_AMOUNT, SRC.STATUS, SRC.STATUS,
-            SRC.PAYMENT_METHOD, SRC.EVENT_TIMESTAMP, V_BATCH_ID,
-            CURRENT_TIMESTAMP()
-        );
-
-    V_ROWS_PROCESSED := SQLROWCOUNT;
-
-    -- Mark stream records as processed
-    UPDATE SILVER.ORDERS_STREAM_SLV
-    SET PROCESSED_TO_GOLD = TRUE,
-        BATCH_ID = V_BATCH_ID
-    WHERE ORDER_ID IN (
-        SELECT ORDER_ID FROM STREAM_ORDERS_CHANGES
-    );
-
-    RETURN OBJECT_CONSTRUCT(
-        'STATUS', 'SUCCESS',
-        'BATCH_ID', V_BATCH_ID,
-        'ROWS_PROCESSED', V_ROWS_PROCESSED
-    );
-END;
-$$;
