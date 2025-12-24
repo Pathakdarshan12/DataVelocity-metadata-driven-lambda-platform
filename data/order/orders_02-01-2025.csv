@@ -1,0 +1,5 @@
+CustomerID,RestaurantID,OrderDate,TotalAmount,Status,PaymentMethod
+6,8,2024-09-16 14:24:35.666324,1101,Delivered,UPI
+7,7,2024-04-02 14:24:35.666702,1815,Delivered,UPI
+8,10,2023-11-24 14:24:35.667126,1990,Delivered,UPI
+8,9,2023-11-21 14:24:35.667322,2738,Returned,UPI

@@ -1,0 +1,9 @@
+CustomerID,RestaurantID,OrderDate,TotalAmount,Status,PaymentMethod
+1,1,2023-12-23 14:24:35.663962,187,Delivered,Cash
+1,2,2024-04-18 14:24:35.664132,1676,Delivered,Cash
+1,3,2024-06-24 14:24:35.664284,561,Canceled,UPI
+2,4,2023-12-10 14:24:35.664649,538,Failed,Cash
+3,5,2024-05-01 14:24:35.665014,272,Returned,UPI
+4,5,2023-11-29 14:24:35.665403,998,Failed,UPI
+4,5,2024-01-05 14:24:35.665573,918,Returned,Wallet
+5,2,2024-07-02 14:24:35.665915,1590,Abandoned,Wallet

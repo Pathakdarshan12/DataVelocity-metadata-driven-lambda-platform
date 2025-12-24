@@ -1,0 +1,9 @@
+OrderID,DeliveryAgentID,DeliveryStatus,EstimatedTime,DeliveryAddress,DeliveryDate
+1,5,Delivered,10 minutes,1,2023-12-24 09:24:35.663962
+2,5,Delivered,9 minutes,1,2024-04-19 07:24:35.664132
+3,5,Canceled,25 minutes,1,2024-06-25 00:24:35.664284
+4,5,Failed,71 minutes,2,2023-12-11 13:24:35.664649
+5,5,Returned,80 minutes,3,2024-05-02 11:24:35.665014
+6,5,Failed,-1 minutes,4,2023-11-29 15:24:35.665403
+7,6,Returned,200 minutes,4,2024-01-05 17:24:35.665573
+8,6,Abandoned,-1 minutes,5,2024-07-03 06:24:35.665915

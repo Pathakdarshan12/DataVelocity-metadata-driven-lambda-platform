@@ -1,0 +1,5 @@
+CustomerID,RestaurantID,OrderDate,TotalAmount,Status,PaymentMethod
+9,1,2024-03-29 14:24:35.667731,600,Delivered,Credit Card
+9,3,2024-03-26 14:24:35.667846,544,Delivered,UPI
+10,7,2024-10-10 14:24:35.668203,1693,Canceled,Credit Card
+10,9,2023-12-21 14:24:35.668393,1693,Delivered,Credit Card

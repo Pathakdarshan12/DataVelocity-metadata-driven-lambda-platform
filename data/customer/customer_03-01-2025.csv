@@ -1,0 +1,4 @@
+Name|Mobile|Email|LoginByUsing|Gender|DOB|Anniversary|Preferences
+Jiya Ram|7843078528|jiyaram@hotmail.com|Other_EMail|Corporate|1992-09-13|2015-09-13|{"FoodPreference": "Non-Veg", "CuisineTypes": ["Mexican"]}
+Tushar Rao|8132578638|tusharrao@outlook.com|Other_EMail|Male|1993-07-25|2016-07-25|{"FoodPreference": "Veg", "CuisineTypes": ["Chinese", "Thai", "Italian"]}
+Shamik Shenoy|7482471462|shamikshenoy@gmail.com|GMail_Account|Other|2003-09-02|2026-09-02|{"FoodPreference": "Veg", "CuisineTypes": ["Chinese"]}
