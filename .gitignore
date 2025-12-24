@@ -15,13 +15,13 @@ __pycache__/
 /venv/Scripts/
 .env
 /venv/Scripts/dotenv.exe
-delivery-connector.json
-orders-connector.json
+streaming/delivery-connector.json
+streaming/orders-connector.json
 /snowflake_key.p8
 /snowflake_key.pub
 /snowflake_private_key.p8
 /snowflake_public_key.pub
-/order-items-connector.json
+/streaming/order-items-connector.json
 
 # Cryptographic keys
 *.p8

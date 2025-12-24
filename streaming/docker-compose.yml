@@ -50,7 +50,7 @@ services:
 
   # Kafka Connect - Minimal Configuration
   kafka-connect:
-    build: .
+    build: ..
     image: kafka-connect-snowflake
     hostname: kafka-connect
     container_name: kafka-connect

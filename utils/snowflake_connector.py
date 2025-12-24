@@ -133,19 +133,6 @@ if __name__ == "__main__":
         print(f"Snowflake Version: {results}")
 
         # Using context manager for custom queries
-        with sf.get_cursor(dict_cursor=True) as cursor:
-            cursor.execute("CALL ITAS.DEV.SP_ETL_JOBS_PIPELINE(%s)", ('@scrapped_jobs/jobs_2025-12-10_12-09-21.csv',))
-            result = cursor.fetchone()
-            print(f"Current User: {result}")
-
-        with sf.get_cursor() as cursor:
-            # Search across all schemas in the database
-            cursor.execute("USE DATABASE ITAS")
-            cursor.execute("SHOW PROCEDURES LIKE 'SP_ETL_JOBS_PIPELINE'")
-            procedures = cursor.fetchall()
-            print(f"All procedures in ITAS database: {procedures}")
-
-        # Add after connection
         with sf.get_cursor() as cursor:
             cursor.execute("SELECT CURRENT_DATABASE(), CURRENT_SCHEMA(), CURRENT_ROLE(), CURRENT_WAREHOUSE(), CURRENT_USER()")
             context = cursor.fetchone()
