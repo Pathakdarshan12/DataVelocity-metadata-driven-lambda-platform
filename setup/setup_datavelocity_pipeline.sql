@@ -17,8 +17,8 @@ COMMENT = 'This is the ADHOC-WH'
 -- ----------------------------------------------------------------------------------------------------
 -- Create Database & Schemas
 -- ----------------------------------------------------------------------------------------------------
-CREATE DATABASE IF NOT EXISTS SWIGGY;
-USE DATABASE SWIGGY;
+CREATE DATABASE IF NOT EXISTS DATAVELOCITY;
+USE DATABASE DATAVELOCITY;
 CREATE SCHEMA IF NOT EXISTS BRONZE;
 CREATE SCHEMA IF NOT EXISTS SILVER;
 CREATE SCHEMA IF NOT EXISTS GOLD;
@@ -27,7 +27,7 @@ CREATE SCHEMA IF NOT EXISTS COMMON;
 -- ----------------------------------------------------------------------------------------------------
 -- Create File Formats for stage files
 -- ----------------------------------------------------------------------------------------------------
--- CSV Comma Delimited
+-- CSV Comma Delimeted
 CREATE FILE FORMAT IF NOT EXISTS BRONZE.FF_CSV_COMMA
 TYPE = 'CSV'
 COMPRESSION = 'AUTO'
@@ -37,7 +37,7 @@ SKIP_HEADER = 1
 FIELD_OPTIONALLY_ENCLOSED_BY = '\042'
 NULL_IF = ('\\N');
 
--- CSV Pipe Delimited
+-- CSV Pipe Delimeted
 CREATE OR REPLACE FILE FORMAT COMMON.FF_CSV_PIPE
 TYPE = 'CSV'
 FIELD_DELIMITER = '|'
@@ -60,12 +60,14 @@ CREATE OR REPLACE FILE FORMAT COMMON.FF_PARQUET
 TYPE = 'PARQUET'
 SNAPPY_COMPRESSION = TRUE;
 
+
 -- ----------------------------------------------------------------------------------------------------
 -- Create File Stage
 -- ----------------------------------------------------------------------------------------------------
-CREATE STAGE BRONZE.CSV_STG
-DIRECTORY = ( ENABLE = TRUE )
-COMMENT = 'THIS IS THE SNOWFLAKE INTERNAL STAGE';
+CREATE OR REPLACE STAGE BRONZE.CSV_STG
+    DIRECTORY = (ENABLE = TRUE)
+    ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')
+    COMMENT = 'Internal stage for CSV files';
 
 -- ----------------------------------------------------------------------------------------------------
 -- Create Tag
@@ -86,7 +88,7 @@ TO_VARCHAR('** PII **');
 CREATE OR REPLACE MASKING POLICY
 COMMON.EMAIL_MASKING_POLICY AS (EMAIL_TEXT STRING)
 RETURNS STRING ->
-TO_VARCHAR('** EMAIL **');
+TO_VARCHAR('** EAMIL **');
 -- ----------------------------------------------------------------------------------------------------
 CREATE OR REPLACE MASKING POLICY
 COMMON.PHONE_MASKING_POLICY AS (PHONE STRING)

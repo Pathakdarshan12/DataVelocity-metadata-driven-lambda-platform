@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Kafka Producer for Swiggy Streaming Pipeline
+Kafka Producer for DATAVELOCITY Streaming Pipeline
 Generates test data for orders, order-items, and delivery events
 """
 
@@ -209,7 +209,7 @@ def main():
     """Main function"""
     print("""
     ╔══════════════════════════════════════════════════════════╗
-    ║   Swiggy Kafka Streaming Producer                        ║
+    ║   DATAVELOCITY Kafka Streaming Producer                  ║
     ║   Real-time Order, Order Items & Delivery Events         ║
     ╚══════════════════════════════════════════════════════════╝
     """)

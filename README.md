@@ -67,7 +67,7 @@ DataVelocity processes food delivery transaction data through a three-tier medal
 ```
 datavelocity/
 ├── setup/
-│   └── setup_swiggy_pipeline.sql          # Database, schemas, file formats, stages
+│   └── setup_datavelocity_pipeline.sql          # Database, schemas, file formats, stages
 ├── entities/
 │   ├── customer.sql                        # Customer dimension (SCD2)
 │   ├── customer_address.sql                # Address dimension (SCD2)
@@ -315,7 +315,7 @@ RSA_PUBLIC_KEY = '<public_key>'
 DEFAULT_ROLE = KAFKA_CONNECTOR_ROLE;
 
 -- Grant permissions
-GRANT USAGE ON DATABASE SWIGGY TO ROLE KAFKA_CONNECTOR_ROLE;
+GRANT USAGE ON DATABASE DATAVELOCITY TO ROLE KAFKA_CONNECTOR_ROLE;
 GRANT USAGE, CREATE TABLE ON SCHEMA SILVER TO ROLE KAFKA_CONNECTOR_ROLE;
 ```
 
@@ -414,10 +414,9 @@ SELECT * FROM COMMON.VW_TASK_EXECUTION_STATUS;
 -- 4. Deploy orchestration
 @orchestration/import_master_procedure.sql
 
--- 5. Analytics
+-- 6. Analytics
 @analytics/dim_date.sql
 @analytics/mart_orders.sql
-
 
 -- 5. (Optional) Setup streaming
 @streaming/Kafka_Streaming_Setup.sql

@@ -63,21 +63,6 @@ Zero duplicate loads across 50+ test runs with intentional failures and retries
 
 Same data quality framework catches 95%+ of issues in both batch and streaming before Silver
 
-
-**The architectural insight:**
-
-Most Lambda implementations fail because they build two separate pipelines. I built one pipeline with two entry points:
-
-CSV files      → Bronze → DQ → Silver → Gold
-
-Kafka events   → Landing → Stream CDC → Bronze → DQ → Silver → Gold
-
-&nbsp;                                       ↑
-
-&nbsp;                                Same procedures from here
-
-The landing-to-Bronze step adds 10 seconds but ensures architectural consistency. Data quality isn't optional because data moves fast.
-
 **What I learned the hard way:**
 
 The Lambda Architecture isn't about building two separate pipelines. It's about designing transformations that work on both micro-batches (streaming) and macro-batches (files) with identical logic. The medallion layers provide structure. Data quality gates provide safety. The convergence point (Bronze) eliminates duplication.
@@ -100,8 +85,6 @@ Python producer for event generation and lifecycle testing
 
 Pure SQL—no Spark, no Airflow (Snowflake native features handle everything)
 
-
-
 **Why this matters for real-world systems:**
 
 Most companies start with batch, add streaming later, and end up maintaining two platforms with divergent logic and separate quality checks. This approach proves you can unify them from day one without sacrificing performance or reliability. It's not theoretical—the entire pipeline is on GitHub with DDL, procedures, Kafka configs, monitoring queries, and a Python event generator for testing the full lifecycle.
@@ -112,7 +95,4 @@ If you're architecting data platforms, dealing with Lambda Architecture complexi
 
 GitHub link: https://github.com/Pathakdarshan12/DataVelocity-metadata-driven-lambda-platform
 
-Open to connecting with senior data engineers and hiring managers working on similar challenges.
-
-\#DataEngineering #Snowflake #LambdaArchitecture
-
+#DataEngineering #Snowflake #LambdaArchitecture

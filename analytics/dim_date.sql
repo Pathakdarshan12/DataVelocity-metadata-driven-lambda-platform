@@ -4,7 +4,7 @@
 -- CHANGE_CONTEXT
 USE ROLE ACCOUNTADMIN;
 USE WAREHOUSE ADHOC_WH;
-USE DATABASE SWIGGY;
+USE DATABASE DATAVELOCITY;
 USE SCHEMA GOLD;
 
 -- ----------------------------------------------------------------------------------------------------

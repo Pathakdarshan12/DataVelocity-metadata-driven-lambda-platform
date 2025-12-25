@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Read input CSV
-df = pd.read_csv("D:\Programming\Projects\swiggy_data_pipeline\swiggy_data\order_item\order_item_04-01-2025.csv")
+df = pd.read_csv("D:\Programming\Projects\DataVelocity\data\order_item\order_item_04-01-2025.csv")
 df.columns = df.columns.str.strip()
 # Columns you want to remove
 columns_to_remove = [

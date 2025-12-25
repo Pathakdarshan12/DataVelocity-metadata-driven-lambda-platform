@@ -2,7 +2,7 @@
 -- METADATA TABLES
 -- =====================================================
 -- 1. DATA_FILE_FORMAT: Defines file formats and their characteristics
-CREATE OR REPLACE TABLE SWIGGY.COMMON.DATA_FILE_FORMAT (
+CREATE OR REPLACE TABLE DATAVELOCITY.COMMON.DATA_FILE_FORMAT (
     file_format_id INTEGER AUTOINCREMENT PRIMARY KEY,
     file_format_name VARCHAR(100) NOT NULL UNIQUE,
     file_format_type VARCHAR(20) NOT NULL, -- CSV, JSON, PARQUET, AVRO, XML
@@ -39,7 +39,7 @@ CREATE OR REPLACE TABLE SWIGGY.COMMON.DATA_FILE_FORMAT (
 COMMENT = 'Master table defining file formats, sources, and processing configurations';
 
 -- 2. DATA_FIELD: Defines fields/columns in source files
-CREATE OR REPLACE TABLE SWIGGY.COMMON.data_field (
+CREATE OR REPLACE TABLE DATAVELOCITY.COMMON.data_field (
     data_field_id INTEGER AUTOINCREMENT PRIMARY KEY,
     file_format_id INTEGER NOT NULL,
     field_name VARCHAR(200) NOT NULL, -- source field name
@@ -67,13 +67,13 @@ CREATE OR REPLACE TABLE SWIGGY.COMMON.data_field (
     updated_at TIMESTAMP_NTZ,
 
     CONSTRAINT fk_data_field_format FOREIGN KEY (file_format_id)
-        REFERENCES SWIGGY.COMMON.data_file_format(file_format_id),
+        REFERENCES DATAVELOCITY.COMMON.data_file_format(file_format_id),
     CONSTRAINT uq_field_per_format UNIQUE (file_format_id, field_name)
 )
 COMMENT = 'Defines individual fields/columns within each file format';
 
 -- 3. DATABASE_COLUMN_MAPPING: Maps source fields to target database columns
-CREATE OR REPLACE TABLE SWIGGY.COMMON.database_column_mapping (
+CREATE OR REPLACE TABLE DATAVELOCITY.COMMON.database_column_mapping (
     mapping_id INTEGER AUTOINCREMENT PRIMARY KEY,
     data_field_id INTEGER NOT NULL,
 
@@ -109,14 +109,14 @@ CREATE OR REPLACE TABLE SWIGGY.COMMON.database_column_mapping (
     updated_at TIMESTAMP_NTZ,
 
     CONSTRAINT fk_mapping_data_field FOREIGN KEY (data_field_id)
-        REFERENCES SWIGGY.COMMON.data_field(data_field_id),
+        REFERENCES DATAVELOCITY.COMMON.data_field(data_field_id),
     CONSTRAINT uq_target_column UNIQUE (data_field_id, target_schema, target_table, target_column)
 )
 COMMENT = 'Maps source fields to target database columns with transformation logic';
 
 -- 4. DATA_FILE_DATA_FORMAT: Junction table for many-to-many relationships
 -- (if a file format can map to multiple data formats or vice versa)
-CREATE OR REPLACE TABLE SWIGGY.COMMON.data_file_data_format (
+CREATE OR REPLACE TABLE DATAVELOCITY.COMMON.data_file_data_format (
     file_data_format_id INTEGER AUTOINCREMENT PRIMARY KEY,
     file_format_id INTEGER NOT NULL,
     data_field_id INTEGER NOT NULL,
@@ -135,9 +135,9 @@ CREATE OR REPLACE TABLE SWIGGY.COMMON.data_file_data_format (
     created_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
 
     CONSTRAINT fk_file_data_format_file FOREIGN KEY (file_format_id)
-        REFERENCES SWIGGY.COMMON.data_file_format(file_format_id),
+        REFERENCES DATAVELOCITY.COMMON.data_file_format(file_format_id),
     CONSTRAINT fk_file_data_format_field FOREIGN KEY (data_field_id)
-        REFERENCES SWIGGY.COMMON.data_field(data_field_id),
+        REFERENCES DATAVELOCITY.COMMON.data_field(data_field_id),
     CONSTRAINT uq_file_field_combo UNIQUE (file_format_id, data_field_id)
 )
 COMMENT = 'Junction table for flexible file format to field relationships';
@@ -147,7 +147,7 @@ COMMENT = 'Junction table for flexible file format to field relationships';
 -- =====================================================
 
 -- 5. FILE_LOAD_HISTORY: Track file processing history
-CREATE OR REPLACE TABLE SWIGGY.COMMON.file_load_history (
+CREATE OR REPLACE TABLE DATAVELOCITY.COMMON.file_load_history (
     load_id INTEGER AUTOINCREMENT PRIMARY KEY,
     file_format_id INTEGER NOT NULL,
     file_name VARCHAR(500) NOT NULL,
@@ -170,12 +170,12 @@ CREATE OR REPLACE TABLE SWIGGY.COMMON.file_load_history (
     loaded_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
 
     CONSTRAINT fk_load_history_format FOREIGN KEY (file_format_id)
-        REFERENCES SWIGGY.COMMON.data_file_format(file_format_id)
+        REFERENCES DATAVELOCITY.COMMON.data_file_format(file_format_id)
 )
 COMMENT = 'Audit trail of all file processing activities';;
 
 -- 6. DATA_QUALITY_RULES: Centralized data quality rules
-CREATE OR REPLACE TABLE SWIGGY.COMMON.data_quality_rules (
+CREATE OR REPLACE TABLE DATAVELOCITY.COMMON.data_quality_rules (
     rule_id INTEGER AUTOINCREMENT PRIMARY KEY,
     rule_name VARCHAR(200) NOT NULL UNIQUE,
     rule_type VARCHAR(50) NOT NULL, -- RANGE, PATTERN, LOOKUP, CUSTOM
@@ -195,7 +195,7 @@ COMMENT = 'Centralized repository of data quality validation rules';;
 -- =====================================================
 
 -- Complete mapping view: file format -> fields -> target columns
-CREATE OR REPLACE VIEW SWIGGY.COMMON.vw_complete_field_mapping AS
+CREATE OR REPLACE VIEW DATAVELOCITY.COMMON.vw_complete_field_mapping AS
 SELECT
     ff.file_format_id,
     ff.file_format_name,
@@ -226,17 +226,17 @@ SELECT
     ff.is_active AS format_active,
     dcm.is_active AS mapping_active
 
-FROM SWIGGY.COMMON.data_file_format ff
-INNER JOIN SWIGGY.COMMON.data_field df
+FROM DATAVELOCITY.COMMON.data_file_format ff
+INNER JOIN DATAVELOCITY.COMMON.data_field df
     ON ff.file_format_id = df.file_format_id
-INNER JOIN SWIGGY.COMMON.database_column_mapping dcm
+INNER JOIN DATAVELOCITY.COMMON.database_column_mapping dcm
     ON df.data_field_id = dcm.data_field_id
 WHERE ff.is_active = TRUE
   AND dcm.is_active = TRUE
 ORDER BY ff.file_format_name, df.field_position, dcm.mapping_priority;
 
 -- View for file processing configuration
-CREATE OR REPLACE VIEW SWIGGY.COMMON.vw_file_processing_config AS
+CREATE OR REPLACE VIEW DATAVELOCITY.COMMON.vw_file_processing_config AS
 SELECT
     ff.file_format_id,
     ff.file_format_name,
@@ -255,12 +255,14 @@ SELECT
     COUNT(DISTINCT dcm.mapping_id) AS total_mappings,
     MAX(fh.load_end_time) AS last_load_time,
     SUM(CASE WHEN fh.load_status = 'FAILED' THEN 1 ELSE 0 END) AS failed_loads_count
-FROM SWIGGY.COMMON.data_file_format ff
-LEFT JOIN SWIGGY.COMMON.data_field df
+FROM DATAVELOCITY.COMMON.data_file_format ff
+LEFT JOIN DATAVELOCITY.COMMON.data_field df
     ON ff.file_format_id = df.file_format_id
-LEFT JOIN SWIGGY.COMMON.database_column_mapping dcm
+LEFT JOIN DATAVELOCITY.COMMON.database_column_mapping dcm
     ON df.data_field_id = dcm.data_field_id
-LEFT JOIN SWIGGY.COMMON.file_load_history fh
+LEFT JOIN DATAVELOCITY.COMMON.file_load_history fh
     ON ff.file_format_id = fh.file_format_id
 WHERE ff.is_active = TRUE
 GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13;
+
+select * from data_file_format;
