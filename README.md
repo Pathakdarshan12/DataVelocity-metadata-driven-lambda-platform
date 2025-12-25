@@ -100,7 +100,7 @@ datavelocity/
 
 ### 1. Medallion Architecture Implementation
 
-
+![Medallion Architecture](docs/images/medalion_architecture.png)
 
 **Bronze Layer**:
 - Stores raw data with minimal transformation (type casting only)
@@ -122,6 +122,9 @@ datavelocity/
 - Separate status history tables for audit trails
 
 ### 2. SCD Type 2 Implementation
+
+[//]: # (![Medallion Architecture]&#40;docs/images/CDC.png&#41;)
+![Medallion Architecture](docs/images/hash_based_scd_type_2.png)
 
 ```sql
 -- Change detection using hash comparison
@@ -156,6 +159,7 @@ Configurable validation rules stored in `COMMON.DQ_CONFIG`:
 Validation results logged to `*_LOAD_ERROR` tables with error messages for reconciliation.
 
 ### 4. Streaming Architecture
+![Streaming Architecture](docs/images/Snowpipe_kafka_connect.png)
 
 **Snowpipe Streaming vs. Snowpipe**:
 - Uses Snowpipe Streaming for lower latency (<5 seconds vs. ~1 minute)

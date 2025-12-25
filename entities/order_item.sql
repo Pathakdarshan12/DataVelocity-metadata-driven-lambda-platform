@@ -48,6 +48,8 @@ CREATE OR REPLACE TABLE BRONZE.ORDER_ITEM_LOAD_ERROR(
     INGEST_RUN_ID INTEGER
 );
 
+SELECT CURRENT_TIMESTAMP();
+
 -- ----------------------------------------------------------------------------------------------------
 -- CREATE ORDER_ITEM_SLV
 -- ----------------------------------------------------------------------------------------------------
@@ -61,11 +63,12 @@ CREATE OR REPLACE TABLE SILVER.ORDER_ITEM_SLV (
     ORDER_TIMESTAMP TIMESTAMP_TZ,
 
     -- AUDIT COLUMNS
-    BATCH_ID STRING(36),
+    BATCH_ID STRING(50),
     CREATED_AT TIMESTAMP_TZ,
     UPDATED_AT TIMESTAMP_TZ
 );
 ALTER TABLE SILVER.ORDER_ITEM_SLV CLUSTER BY (DAY(ORDER_TIMESTAMP),MONTH(ORDER_TIMESTAMP));
+
 -- ----------------------------------------------------------------------------------------------------
 -- CREATE FACT_ORDER_ITEM
 -- ----------------------------------------------------------------------------------------------------
@@ -90,7 +93,11 @@ ALTER TABLE GOLD.FACT_ORDER_ITEM CLUSTER BY (DAY(ORDER_TIMESTAMP),MONTH(ORDER_TI
 -- ----------------------------------------------------------------------------------------------------
 -- PROCEDURE: ORDER_ITEM STAGE TO BRONZE
 -- ----------------------------------------------------------------------------------------------------
-CREATE OR REPLACE PROCEDURE BRONZE.SP_ORDER_ITEM_STAGE_TO_BRONZE(P_PIPELINE_NAME VARCHAR, P_FILE_NAME VARCHAR)
+CREATE OR REPLACE PROCEDURE BRONZE.SP_ORDER_ITEM_STAGE_TO_BRONZE(
+    P_PIPELINE_NAME VARCHAR,
+    P_SOURCE_TYPE VARCHAR,
+    P_FILE_NAME VARCHAR
+)
 RETURNS VARIANT
 LANGUAGE SQL
 EXECUTE AS OWNER
@@ -106,64 +113,112 @@ DECLARE
     V_SOURCE_LOCATION VARCHAR;
     V_FILE_FORMAT VARCHAR;
     V_FILE_PATH VARCHAR;
+    V_SOURCE_TYPE_UPPER VARCHAR;
 BEGIN
     V_START_TIME := CURRENT_TIMESTAMP();
+    V_SOURCE_TYPE_UPPER := UPPER(P_SOURCE_TYPE);
 
+    -- GET PIPELINE CONFIGURATION
     SELECT SOURCE_LOCATION, FILE_FORMAT
     INTO :V_SOURCE_LOCATION, :V_FILE_FORMAT
     FROM COMMON.IMPORT_CONFIGURATION
     WHERE PIPELINE_NAME = :P_PIPELINE_NAME;
 
-    V_FILE_PATH := V_SOURCE_LOCATION || P_FILE_NAME;
-
+    -- Start explicit transaction
     BEGIN TRANSACTION;
 
+    -- Consume sequence
+    SELECT SWIGGY.BRONZE.SEQ_ORDER_ITEM_INGEST_RUN_ID.NEXTVAL INTO :V_INGEST_RUN_ID;
+
+    -- Create common temp table for both sources
     CREATE OR REPLACE TEMPORARY TABLE TEMP_ORDER_ITEM_LOAD(
-        ORDER_ID TEXT,
-        MENU_ID TEXT,
-        QUANTITY TEXT,
-        PRICE TEXT,
-        SUBTOTAL TEXT,
-        ORDER_TIMESTAMP STRING
+        ORDER_ID VARCHAR,
+        MENU_ID VARCHAR,
+        QUANTITY VARCHAR,
+        PRICE VARCHAR,
+        SUBTOTAL VARCHAR,
+        ORDER_TIMESTAMP VARCHAR
     );
 
-    EXECUTE IMMEDIATE
-    'COPY INTO TEMP_ORDER_ITEM_LOAD (
-        ORDER_ID, MENU_ID, QUANTITY, PRICE, SUBTOTAL, ORDER_TIMESTAMP
-    )
-    FROM (
+    -- Load data into temp table based on source type
+    IF (V_SOURCE_TYPE_UPPER = 'FILE') THEN
+
+        V_FILE_PATH := V_SOURCE_LOCATION || P_FILE_NAME;
+
+        EXECUTE IMMEDIATE
+        'COPY INTO TEMP_ORDER_ITEM_LOAD (
+            ORDER_ID, MENU_ID, QUANTITY, PRICE, SUBTOTAL, ORDER_TIMESTAMP
+        )
+        FROM (
+            SELECT
+                $1::STRING AS ORDER_ID,
+                $2::STRING AS MENU_ID,
+                $3::STRING AS QUANTITY,
+                $4::STRING AS PRICE,
+                $5::STRING AS SUBTOTAL,
+                $6::STRING AS ORDER_TIMESTAMP
+            FROM ' || V_FILE_PATH || '
+        )
+        FILE_FORMAT = (FORMAT_NAME = ''' || V_FILE_FORMAT || ''')
+        ON_ERROR = ABORT_STATEMENT';
+
+    END IF;
+
+    -- Load from STREAM source
+    IF (V_SOURCE_TYPE_UPPER = 'STREAM') THEN
+
+        INSERT INTO TEMP_ORDER_ITEM_LOAD (
+            ORDER_ID, MENU_ID, QUANTITY, PRICE, SUBTOTAL, ORDER_TIMESTAMP
+        )
         SELECT
-            $1::STRING AS ORDER_ID,
-            $2::STRING AS MENU_ID,
-            $3::STRING AS QUANTITY,
-            $4::STRING AS PRICE,
-            $5::STRING AS SUBTOTAL,
-            $6::STRING AS ORDER_TIMESTAMP
-        FROM ' || V_FILE_PATH || '
-    )
-    FILE_FORMAT = (FORMAT_NAME = ''' || V_FILE_FORMAT || ''')
-    ON_ERROR = ABORT_STATEMENT';
+            RECORD_CONTENT:order_id::VARCHAR AS ORDER_ID,
+            RECORD_CONTENT:menu_id::VARCHAR AS MENU_ID,
+            RECORD_CONTENT:quantity::VARCHAR AS QUANTITY,
+            RECORD_CONTENT:price::VARCHAR AS PRICE,
+            RECORD_CONTENT:subtotal::VARCHAR AS SUBTOTAL,
+            RECORD_CONTENT:order_timestamp::VARCHAR AS ORDER_TIMESTAMP
+        FROM BRONZE.STREAM_ORDER_ITEM_CHANGES
+        WHERE RECORD_CONTENT:order_id IS NOT NULL
+        AND METADATA$ACTION = 'INSERT'
+        AND METADATA$ISUPDATE = FALSE;
 
-    SELECT COUNT(*) INTO :V_ROWS_INSERTED FROM TEMP_ORDER_ITEM_LOAD;
+    END IF;
 
-    IF (V_ROWS_INSERTED = 0) THEN
+    -- Validate source type
+    IF (V_SOURCE_TYPE_UPPER != 'FILE' AND V_SOURCE_TYPE_UPPER != 'STREAM') THEN
         ROLLBACK;
         DROP TABLE IF EXISTS TEMP_ORDER_ITEM_LOAD;
         RETURN OBJECT_CONSTRUCT(
             'STATUS', 'FAILED',
-            'ERROR', 'No records loaded from file',
-            'FILE_PATH', P_FILE_NAME,
+            'ERROR', 'Invalid SOURCE_TYPE. Must be FILE or STREAM',
+            'SOURCE_TYPE', P_SOURCE_TYPE,
             'ROWS_INSERTED', 0,
             'INGEST_RUN_ID', 0
         );
     END IF;
 
-    SELECT SWIGGY.BRONZE.SEQ_ORDER_ITEM_INGEST_RUN_ID.NEXTVAL INTO :V_INGEST_RUN_ID;
+    -- Get row count from temp table
+    SELECT COUNT(*) INTO :V_ROWS_INSERTED FROM TEMP_ORDER_ITEM_LOAD;
 
+    -- Validate data loaded
+    IF (V_ROWS_INSERTED = 0) THEN
+        ROLLBACK;
+        DROP TABLE IF EXISTS TEMP_ORDER_ITEM_LOAD;
+        RETURN OBJECT_CONSTRUCT(
+            'STATUS', 'FAILED',
+            'ERROR', 'No records loaded from ' || V_SOURCE_TYPE_UPPER,
+            'SOURCE_TYPE', V_SOURCE_TYPE_UPPER,
+            'FILE_PATH', V_FILE_PATH,
+            'ROWS_INSERTED', 0,
+            'INGEST_RUN_ID', 0
+        );
+    END IF;
+
+    -- SINGLE INSERT: Load from temp table to bronze (works for both FILE and STREAM)
     INSERT INTO BRONZE.ORDER_ITEM_BRZ (
         ORDER_ITEM_ID, ORDER_ID, MENU_ID, QUANTITY, PRICE, SUBTOTAL, ORDER_TIMESTAMP,
         ORDER_ID_RAW, MENU_ID_RAW, QUANTITY_RAW, PRICE_RAW, SUBTOTAL_RAW, ORDER_TIMESTAMP_RAW,
-        CREATED_AT, UPDATED_AT, INGEST_RUN_ID
+        INGEST_RUN_ID, CREATED_AT, UPDATED_AT
     )
     SELECT
         UUID_STRING(),
@@ -172,33 +227,57 @@ BEGIN
         TRY_TO_NUMBER(QUANTITY, 10, 2),
         TRY_TO_NUMBER(PRICE, 10, 2),
         TRY_TO_NUMBER(SUBTOTAL, 10, 2),
-        TO_TIMESTAMP_TZ(ORDER_TIMESTAMP),
+        TRY_TO_TIMESTAMP_TZ(ORDER_TIMESTAMP),
         ORDER_ID,
         MENU_ID,
         QUANTITY,
         PRICE,
         SUBTOTAL,
         ORDER_TIMESTAMP,
+        :V_INGEST_RUN_ID,
         CURRENT_TIMESTAMP(),
-        CURRENT_TIMESTAMP(),
-        :V_INGEST_RUN_ID
+        CURRENT_TIMESTAMP()
     FROM TEMP_ORDER_ITEM_LOAD;
 
-    COMMIT;
-
+    -- Cleanup temp table
     DROP TABLE IF EXISTS TEMP_ORDER_ITEM_LOAD;
+
+    -- Commit transaction
+    COMMIT;
 
     V_END_TIME := CURRENT_TIMESTAMP();
     V_EXECUTION_DURATION := DATEDIFF(SECOND, V_START_TIME, V_END_TIME);
 
     RETURN OBJECT_CONSTRUCT(
         'STATUS', 'SUCCESS',
-        'MESSAGE', 'Data loaded successfully with transaction',
+        'MESSAGE', 'Data loaded successfully from ' || V_SOURCE_TYPE_UPPER,
+        'SOURCE_TYPE', V_SOURCE_TYPE_UPPER,
         'FILE_PATH', V_FILE_PATH,
         'ROWS_INSERTED', V_ROWS_INSERTED,
         'INGEST_RUN_ID', V_INGEST_RUN_ID,
         'EXECUTION_TIME_SEC', V_EXECUTION_DURATION
     );
+
+-- EXCEPTION
+--     WHEN OTHER THEN
+--         ROLLBACK;
+
+--         V_ERROR_MESSAGE := SQLERRM;
+--         V_END_TIME := CURRENT_TIMESTAMP();
+--         V_EXECUTION_DURATION := DATEDIFF(SECOND, V_START_TIME, V_END_TIME);
+
+--         DROP TABLE IF EXISTS TEMP_ORDER_ITEM_LOAD;
+
+--         RETURN OBJECT_CONSTRUCT(
+--             'STATUS', 'FAILED',
+--             'ERROR', V_ERROR_MESSAGE,
+--             'SOURCE_TYPE', V_SOURCE_TYPE_UPPER,
+--             'FILE_PATH', V_FILE_PATH,
+--             'ROWS_INSERTED', 0,
+--             'INGEST_RUN_ID', 0,
+--             'EXECUTION_TIME_SEC', V_EXECUTION_DURATION,
+--             'NOTE', 'Transaction rolled back - no sequence consumed'
+--         );
 END;
 $$;
 

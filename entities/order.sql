@@ -2,7 +2,7 @@
 -- ORDER
 -- ==============================================================================================================================================================
 -- CHANGE CONTEXT
-USE DATABASE SWIGGY;
+USE DATABASE DATAVELOCITY;
 USE SCHEMA BRONZE;
 USE WAREHOUSE ADHOC_WH;
 
@@ -49,12 +49,10 @@ CREATE OR REPLACE TABLE SILVER.ORDER_SLV (
     PAYMENT_METHOD STRING(50),
 
     -- AUDIT COLUMNS
-    BATCH_ID STRING(50),
+    BATCH_ID VARCHAR,
     CREATED_AT TIMESTAMP_TZ,
     UPDATED_AT TIMESTAMP_TZ
 );
-
-
 
 -- --------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- CREATE FACT_ORDER
@@ -69,7 +67,7 @@ CREATE OR REPLACE TABLE GOLD.FACT_ORDER (
     INITIAL_STATUS STRING(50),
     PAYMENT_METHOD STRING(50),
     STATUS_UPDATED_AT TIMESTAMP_TZ,
-    BATCH_ID STRING(50),
+    BATCH_ID VARCHAR,
     CREATED_AT TIMESTAMP_TZ,
     UPDATED_AT TIMESTAMP_TZ DEFAULT CURRENT_TIMESTAMP()
 )
@@ -84,17 +82,20 @@ CREATE OR REPLACE TABLE GOLD.FACT_ORDER_STATUS_HISTORY (
     OLD_STATUS STRING(50),
     NEW_STATUS STRING(50),
     STATUS_CHANGED_AT TIMESTAMP_TZ,
-    BATCH_ID STRING(50)
+    BATCH_ID VARCHAR
 )
 COMMENT = 'AUDIT TRAIL FOR ORDER STATUS CHANGES';
 
 -- ----------------------------------------------------------------------------------------------------
 -- PROCEDURE: ORDER STAGE TO BRONZE
 -- ----------------------------------------------------------------------------------------------------
-CREATE OR REPLACE PROCEDURE BRONZE.SP_ORDER_STAGE_TO_BRONZE(P_PIPELINE_NAME VARCHAR, P_FILE_NAME VARCHAR)
+CREATE OR REPLACE PROCEDURE BRONZE.SP_ORDER_STAGE_TO_BRONZE(
+    P_PIPELINE_NAME VARCHAR,
+    P_SOURCE_TYPE VARCHAR,
+    P_FILE_NAME VARCHAR
+)
 RETURNS VARIANT
 LANGUAGE SQL
-EXECUTE AS OWNER
 AS
 $$
 DECLARE
@@ -107,8 +108,10 @@ DECLARE
     V_SOURCE_LOCATION VARCHAR;
     V_FILE_FORMAT VARCHAR;
     V_FILE_PATH VARCHAR;
+    V_SOURCE_TYPE_UPPER VARCHAR;
 BEGIN
     V_START_TIME := CURRENT_TIMESTAMP();
+    V_SOURCE_TYPE_UPPER := UPPER(P_SOURCE_TYPE);
 
     -- GET PIPELINE CONFIGURATION
     SELECT SOURCE_LOCATION, FILE_FORMAT
@@ -116,12 +119,13 @@ BEGIN
     FROM COMMON.IMPORT_CONFIGURATION
     WHERE PIPELINE_NAME = :P_PIPELINE_NAME;
 
-    -- Construct file path
-    V_FILE_PATH := V_SOURCE_LOCATION || P_FILE_NAME;
-
     -- Start explicit transaction
     BEGIN TRANSACTION;
 
+    -- Consume sequence
+    SELECT DATAVELOCITY.BRONZE.SEQ_ORDER_INGEST_RUN_ID.NEXTVAL INTO :V_INGEST_RUN_ID;
+
+    -- Create common temp table for both sources
     CREATE OR REPLACE TEMPORARY TABLE TEMP_ORDER_LOAD(
         CUSTOMER_ID VARCHAR,
         RESTAURANT_ID VARCHAR,
@@ -131,9 +135,13 @@ BEGIN
         PAYMENT_METHOD VARCHAR
     );
 
-    EXECUTE IMMEDIATE
-    '
-        COPY INTO TEMP_ORDER_LOAD (
+    -- Load data into temp table based on source type
+    IF (V_SOURCE_TYPE_UPPER = 'FILE') THEN
+
+        V_FILE_PATH := V_SOURCE_LOCATION || P_FILE_NAME;
+
+        EXECUTE IMMEDIATE
+        'COPY INTO TEMP_ORDER_LOAD (
             CUSTOMER_ID, RESTAURANT_ID, ORDER_DATE,
             TOTAL_AMOUNT, STATUS, PAYMENT_METHOD
         )
@@ -145,14 +153,50 @@ BEGIN
                 $4::STRING AS TOTAL_AMOUNT,
                 $5::STRING AS STATUS,
                 $6::STRING AS PAYMENT_METHOD
-        FROM ''' || V_FILE_PATH || '''
-    )
-    FILE_FORMAT = (FORMAT_NAME = ''' || V_FILE_FORMAT || ''')
-    ON_ERROR = ABORT_STATEMENT
-    ';
+            FROM ' || V_FILE_PATH || '
+        )
+        FILE_FORMAT = (FORMAT_NAME = ''' || V_FILE_FORMAT || ''')
+        ON_ERROR = ABORT_STATEMENT';
 
-    -- Get row count
-    SELECT COUNT(*) INTO :V_ROWS_INSERTED FROM BRONZE.TEMP_ORDER_LOAD;
+    END IF;
+
+    --
+    IF (V_SOURCE_TYPE_UPPER = 'STREAM') THEN
+
+        INSERT INTO TEMP_ORDER_LOAD (
+            CUSTOMER_ID, RESTAURANT_ID, ORDER_DATE,
+            TOTAL_AMOUNT, STATUS, PAYMENT_METHOD
+        )
+        SELECT
+            RECORD_CONTENT:customer_id::VARCHAR AS CUSTOMER_ID,
+            RECORD_CONTENT:restaurant_id::INTEGER AS RESTAURANT_ID,
+            RECORD_CONTENT:order_date::TIMESTAMP_TZ AS ORDER_DATE,
+            RECORD_CONTENT:total_amount::NUMBER(10,2) AS TOTAL_AMOUNT,
+            RECORD_CONTENT:status::VARCHAR AS STATUS,
+            RECORD_CONTENT:payment_method::VARCHAR AS PAYMENT_METHOD
+        FROM BRONZE.STREAM_ORDERS_CHANGES
+        WHERE RECORD_CONTENT:order_id IS NOT NULL
+        AND RECORD_CONTENT:event_type::VARCHAR IN ('ORDER_CREATED', 'ORDER_UPDATED')
+        AND METADATA$ACTION = 'INSERT'
+        AND METADATA$ISUPDATE = FALSE;
+
+    END IF;
+
+    -- Validate source type
+    IF (V_SOURCE_TYPE_UPPER != 'FILE' AND V_SOURCE_TYPE_UPPER != 'STREAM') THEN
+        ROLLBACK;
+        DROP TABLE IF EXISTS TEMP_ORDER_LOAD;
+        RETURN OBJECT_CONSTRUCT(
+            'STATUS', 'FAILED',
+            'ERROR', 'Invalid SOURCE_TYPE. Must be FILE or STREAM',
+            'SOURCE_TYPE', P_SOURCE_TYPE,
+            'ROWS_INSERTED', 0,
+            'INGEST_RUN_ID', 0
+        );
+    END IF;
+
+    -- Get row count from temp table
+    SELECT COUNT(*) INTO :V_ROWS_INSERTED FROM TEMP_ORDER_LOAD;
 
     -- Validate data loaded
     IF (V_ROWS_INSERTED = 0) THEN
@@ -160,33 +204,20 @@ BEGIN
         DROP TABLE IF EXISTS TEMP_ORDER_LOAD;
         RETURN OBJECT_CONSTRUCT(
             'STATUS', 'FAILED',
-            'ERROR', 'No records loaded from file',
-            'FILE_PATH', P_FILE_NAME,
+            'ERROR', 'No records loaded from ' || V_SOURCE_TYPE_UPPER,
+            'SOURCE_TYPE', V_SOURCE_TYPE_UPPER,
+            'FILE_PATH', V_FILE_PATH,
             'ROWS_INSERTED', 0,
             'INGEST_RUN_ID', 0
         );
     END IF;
 
-    -- Consume sequence
-    SELECT SWIGGY.BRONZE.SEQ_ORDER_INGEST_RUN_ID.NEXTVAL INTO :V_INGEST_RUN_ID;
-
+    -- SINGLE INSERT: Load from temp table to bronze (works for both FILE and STREAM)
     INSERT INTO BRONZE.ORDER_BRZ (
-        ORDER_ID,
-        CUSTOMER_ID,
-        RESTAURANT_ID,
-        ORDER_DATE,
-        TOTAL_AMOUNT,
-        STATUS,
-        PAYMENT_METHOD,
-        CUSTOMER_ID_RAW,
-        RESTAURANT_ID_RAW,
-        ORDER_DATE_RAW,
-        TOTAL_AMOUNT_RAW,
-        STATUS_RAW,
-        PAYMENT_METHOD_RAW,
-        INGEST_RUN_ID,
-        CREATED_AT,
-        UPDATED_AT
+        ORDER_ID, CUSTOMER_ID, RESTAURANT_ID, ORDER_DATE, TOTAL_AMOUNT,
+        STATUS, PAYMENT_METHOD, CUSTOMER_ID_RAW, RESTAURANT_ID_RAW,
+        ORDER_DATE_RAW, TOTAL_AMOUNT_RAW, STATUS_RAW, PAYMENT_METHOD_RAW,
+        INGEST_RUN_ID, CREATED_AT, UPDATED_AT
     )
     SELECT
         UUID_STRING(),
@@ -207,18 +238,19 @@ BEGIN
         CURRENT_TIMESTAMP()
     FROM TEMP_ORDER_LOAD;
 
+    -- Cleanup temp table
+    DROP TABLE IF EXISTS TEMP_ORDER_LOAD;
+
     -- Commit transaction
     COMMIT;
-
-    -- Cleanup
-    DROP TABLE IF EXISTS BRONZE.TEMP_ORDER_LOAD;
 
     V_END_TIME := CURRENT_TIMESTAMP();
     V_EXECUTION_DURATION := DATEDIFF(SECOND, V_START_TIME, V_END_TIME);
 
     RETURN OBJECT_CONSTRUCT(
         'STATUS', 'SUCCESS',
-        'MESSAGE', 'Data loaded successfully with transaction',
+        'MESSAGE', 'Data loaded successfully from ' || V_SOURCE_TYPE_UPPER,
+        'SOURCE_TYPE', V_SOURCE_TYPE_UPPER,
         'FILE_PATH', V_FILE_PATH,
         'ROWS_INSERTED', V_ROWS_INSERTED,
         'INGEST_RUN_ID', V_INGEST_RUN_ID,
@@ -227,19 +259,18 @@ BEGIN
 
 EXCEPTION
     WHEN OTHER THEN
-        -- Rollback everything including sequence consumption
         ROLLBACK;
 
         V_ERROR_MESSAGE := SQLERRM;
         V_END_TIME := CURRENT_TIMESTAMP();
         V_EXECUTION_DURATION := DATEDIFF(SECOND, V_START_TIME, V_END_TIME);
 
-        -- Cleanup
         DROP TABLE IF EXISTS TEMP_ORDER_LOAD;
 
         RETURN OBJECT_CONSTRUCT(
             'STATUS', 'FAILED',
             'ERROR', V_ERROR_MESSAGE,
+            'SOURCE_TYPE', V_SOURCE_TYPE_UPPER,
             'FILE_PATH', V_FILE_PATH,
             'ROWS_INSERTED', 0,
             'INGEST_RUN_ID', 0,

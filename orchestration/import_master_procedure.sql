@@ -117,7 +117,7 @@ VALUES
     'GOLD.SP_RESTAURANT_SILVER_TO_GOLD',
     'Restaurant master data pipeline with SCD Type 2'),
 
-('DELIVERY_PIPELINE',
+('DELIVERY_PIPELINE_BATCH',
     'FILE',
     '@BRONZE.CSV_STG/delivery/',
     'BRONZE.FF_CSV_COMMA',
@@ -129,9 +129,23 @@ VALUES
     'BRONZE.SP_DELIVERY_STAGE_TO_BRONZE',
     'SILVER.SP_DELIVERY_BRONZE_TO_SILVER',
     'GOLD.SP_DELIVERY_SILVER_TO_GOLD',
-    'Delivery master data pipeline with SCD Type 2'),
+    'Delivery master data pipeline with SCD Type 2 For Batch'),
 
-('ORDER_PIPELINE',
+('DELIVERY_PIPELINE_STREAM',
+    'STREAM',
+    '@BRONZE.CSV_STG/delivery/',
+    'BRONZE.FF_CSV_COMMA',
+    'BRONZE.DELIVERY_BRZ',
+    'BRONZE.DELIVERY_LOAD_ERROR',
+    'BRONZE.STG_DELIVERY_DQ',
+    'SILVER.DELIVERY_SLV',
+    'GOLD.FACT_DELIVERY',
+    'BRONZE.SP_DELIVERY_STAGE_TO_BRONZE',
+    'SILVER.SP_DELIVERY_BRONZE_TO_SILVER',
+    'GOLD.SP_DELIVERY_SILVER_TO_GOLD',
+    'Delivery master data pipeline with SCD Type 2 For Stream'),
+
+('ORDER_PIPELINE_BATCH',
     'FILE',
     '@BRONZE.CSV_STG/order/',
     'BRONZE.FF_CSV_COMMA',
@@ -143,9 +157,23 @@ VALUES
     'BRONZE.SP_ORDER_STAGE_TO_BRONZE',
     'SILVER.SP_ORDER_BRONZE_TO_SILVER',
     'GOLD.SP_ORDER_SILVER_TO_GOLD',
-    'Order master data pipeline with SCD Type 2'),
+    'Order master data pipeline with SCD Type 2 For Batch'),
 
-('ORDER_ITEM_PIPELINE',
+('ORDER_PIPELINE_STREAM',
+    'STREAM',
+    '@BRONZE.CSV_STG/order/',
+    'BRONZE.FF_CSV_COMMA',
+    'BRONZE.ORDER_BRZ',
+    'BRONZE.ORDER_LOAD_ERROR',
+    'BRONZE.STG_ORDER_DQ',
+    'SILVER.ORDER_SLV',
+    'GOLD.FACT_ORDER',
+    'BRONZE.SP_ORDER_STAGE_TO_BRONZE',
+    'SILVER.SP_ORDER_BRONZE_TO_SILVER',
+    'GOLD.SP_ORDER_SILVER_TO_GOLD',
+    'Order master data pipeline with SCD Type 2 For Stream'),
+
+('ORDER_ITEM_PIPELINE_BATCH',
     'FILE',
     '@BRONZE.CSV_STG/order_item/',
     'BRONZE.FF_CSV_COMMA',
@@ -157,14 +185,29 @@ VALUES
     'BRONZE.SP_ORDER_ITEM_STAGE_TO_BRONZE',
     'SILVER.SP_ORDER_ITEM_BRONZE_TO_SILVER',
     'GOLD.SP_ORDER_ITEM_SILVER_TO_GOLD',
-    'Order Item master data pipeline with SCD Type 2');
+    'Order Item master data pipeline with SCD Type 2 for Batch'),
+
+('ORDER_ITEM_PIPELINE_STREAM',
+    'STREAM',
+    '@BRONZE.CSV_STG/order_item/',
+    'BRONZE.FF_CSV_COMMA',
+    'BRONZE.ORDER_ITEM_BRZ',
+    'BRONZE.ORDER_ITEM_LOAD_ERROR',
+    'BRONZE.STG_ORDER_ITEM_DQ',
+    'SILVER.ORDER_ITEM_SLV',
+    'GOLD.FACT_ORDER_ITEM',
+    'BRONZE.SP_ORDER_ITEM_STAGE_TO_BRONZE',
+    'SILVER.SP_ORDER_ITEM_BRONZE_TO_SILVER',
+    'GOLD.SP_ORDER_ITEM_SILVER_TO_GOLD',
+    'Order Item master data pipeline with SCD Type 2 For Stream');
+
 -- =====================================================
 -- BATCH TABLE - STORES BATCH EXECUTION DATA
 -- =====================================================
 
 CREATE OR REPLACE TABLE COMMON.BATCH (
-    BATCH_ID VARCHAR(36) PRIMARY KEY,
-    PIPELINE_NAME VARCHAR(100) NOT NULL,
+    BATCH_ID VARCHAR PRIMARY KEY,
+    PIPELINE_NAME VARCHAR(100),
     LAST_BATCH_EXECUTED_AT TIMESTAMP_NTZ,
 
     -- Stage Execution Tracking
@@ -203,10 +246,10 @@ CREATE OR REPLACE TABLE COMMON.INGEST_RUN (
     EXECUTED_AT TIMESTAMP_TZ(9) DEFAULT CURRENT_TIMESTAMP(),
     EXECUTED_BY VARCHAR(100) DEFAULT CURRENT_USER()
 );
+
 -- =====================================================
 -- IMPORT MASTER PROCEDURE
 -- =====================================================
-
 CREATE OR REPLACE PROCEDURE COMMON.SP_IMPORT_MASTER(
     PIPELINE_NAME_PARAM VARCHAR,
     STAGE_PATH_PARAM VARCHAR
@@ -217,11 +260,13 @@ AS
 $$
 DECLARE
     v_batch_id STRING;
+    v_source_type STRING;  -- FIXED: Corrected spelling
     v_stage_to_bronze_proc STRING;
     v_bronze_to_silver_proc STRING;
     v_silver_to_gold_proc STRING;
     v_pipeline_enabled BOOLEAN;
     v_pipeline_file_format STRING;
+    v_stage_path STRING;
 
     -- Stage Execution Tracking
     v_stb_start_time TIMESTAMP_NTZ;
@@ -262,24 +307,45 @@ BEGIN
     ------------------------------------------------------------------
     -- STEP 1: INITIALIZE
     ------------------------------------------------------------------
-    v_batch_id := UUID_STRING();
-    v_batch_start_time := CURRENT_TIMESTAMP();
-    v_last_batch_executed_at := CURRENT_TIMESTAMP();
-
     SELECT
         ENABLED,
+        SOURCE_TYPE,
         STAGE_TO_BRONZE_PROC,
         BRONZE_TO_SILVER_PROC,
         SILVER_TO_GOLD_PROC,
         FILE_FORMAT
     INTO
         v_pipeline_enabled,
+        v_source_type,
         v_stage_to_bronze_proc,
         v_bronze_to_silver_proc,
         v_silver_to_gold_proc,
         v_pipeline_file_format
     FROM COMMON.IMPORT_CONFIGURATION
     WHERE PIPELINE_NAME = :PIPELINE_NAME_PARAM;
+
+    -- Set Stage Path based on source type
+    v_stage_path := STAGE_PATH_PARAM;
+    IF (UPPER(v_source_type) = 'STREAM') THEN
+        v_stage_path := NULL;
+    END IF;
+
+    -- Create Batch ID based on source
+    IF (UPPER(v_source_type) = 'FILE') THEN
+        v_batch_id := 'BATCH_' || UUID_STRING();
+    END IF;
+
+    -- Get Souce Type
+    IF (UPPER(v_source_type) = 'STREAM') THEN
+        v_batch_id := 'STREAM_' || UUID_STRING();
+    END IF;
+
+    IF (UPPER(v_source_type) != 'FILE' AND UPPER(v_source_type) != 'STREAM') THEN
+        v_batch_id := 'GENERIC_' || UUID_STRING();
+    END IF;
+
+    v_batch_start_time := CURRENT_TIMESTAMP();
+    v_last_batch_executed_at := CURRENT_TIMESTAMP();
 
     -- INITIALIZE BATCH TABLE
     INSERT INTO COMMON.BATCH(BATCH_ID, PIPELINE_NAME)
@@ -291,24 +357,29 @@ BEGIN
     BEGIN
         v_stb_start_time := CURRENT_TIMESTAMP();
 
-        -- Call stored procedure dynamically
-        LET res RESULTSET := (EXECUTE IMMEDIATE 'CALL ' || :v_stage_to_bronze_proc || '(?, ?)' USING (PIPELINE_NAME_PARAM, STAGE_PATH_PARAM));
+        -- SP_ORDER_STAGE_TO_BRONZE(P_PIPELINE_NAME, P_SOURCE_TYPE, P_FILE_NAME)
+        LET res RESULTSET := (
+            EXECUTE IMMEDIATE 'CALL ' || :v_stage_to_bronze_proc || '(?, ?, ?)'
+            USING (PIPELINE_NAME_PARAM, v_source_type, v_stage_path)
+        );
+
         LET cur CURSOR FOR res;
         OPEN cur;
         FETCH cur INTO v_stb_result;
         CLOSE cur;
 
-        -- Extract values from the result array
+        -- Extract values from the result
         v_stb_status := v_stb_result:STATUS::VARCHAR;
         v_stb_error := v_stb_result:ERROR::VARCHAR;
         v_ingest_run_id := v_stb_result:INGEST_RUN_ID::INTEGER;
-        v_s_inserted_records := v_stb_result:ROWS_INSERTED::INTEGER;
+        v_b_inserted_records := v_stb_result:ROWS_INSERTED::INTEGER;
         v_stb_end_time := CURRENT_TIMESTAMP();
         v_stb_duration_sec := DATEDIFF(SECOND, v_stb_start_time, v_stb_end_time);
 
     EXCEPTION
         WHEN OTHER THEN
             v_stb_status := 'FAILED';
+            v_stb_error := SQLERRM;  -- Added error message capture
             v_stb_end_time := CURRENT_TIMESTAMP();
             v_stb_duration_sec := DATEDIFF(SECOND, v_stb_start_time, v_stb_end_time);
     END;
@@ -320,7 +391,11 @@ BEGIN
         v_bts_start_time := CURRENT_TIMESTAMP();
 
         -- Call stored procedure dynamically
-        LET res RESULTSET := (EXECUTE IMMEDIATE 'CALL ' || :v_bronze_to_silver_proc || '(?, ?, ?)' USING (PIPELINE_NAME_PARAM, v_ingest_run_id, v_batch_id));
+        LET res RESULTSET := (
+            EXECUTE IMMEDIATE 'CALL ' || :v_bronze_to_silver_proc || '(?, ?, ?)'
+            USING (PIPELINE_NAME_PARAM, v_ingest_run_id, v_batch_id)
+        );
+
         LET cur CURSOR FOR res;
         OPEN cur;
         FETCH cur INTO v_bts_result;
@@ -336,6 +411,7 @@ BEGIN
     EXCEPTION
         WHEN OTHER THEN
             v_bts_status := 'FAILED';
+            v_bts_error := SQLERRM;  -- Added error message capture
             v_bts_end_time := CURRENT_TIMESTAMP();
             v_bts_duration_sec := DATEDIFF(SECOND, v_bts_start_time, v_bts_end_time);
     END;
@@ -441,11 +517,59 @@ BEGIN
         )
     WHERE BATCH_ID = :v_batch_id;
 
+        INSERT INTO COMMON.PIPELINE_EXECUTION_RESULT (TASK_NAME, PIPELINE_NAME, BATCH_START_TIME, BATCH_END_TIME, TOTAL_DURATION_SEC, STAGE_PATH, SOURCE_TYPE, RESULT)
+        SELECT 'TASK' AS TASK_NAME, :PIPELINE_NAME_PARAM, :v_batch_start_time, :v_batch_end_time, DATEDIFF(SECOND, :v_batch_start_time, :v_batch_end_time), :STAGE_PATH_PARAM, :v_source_type,
+        OBJECT_CONSTRUCT(
+        'batch_start_time', :v_batch_start_time,
+        'batch_end_time', :v_batch_end_time,
+        'total_duration_sec', DATEDIFF(SECOND, :v_batch_start_time, :v_batch_end_time),
+        'stage_path', :STAGE_PATH_PARAM,
+        'source_type', :v_source_type,
+
+        'stage_to_bronze', OBJECT_CONSTRUCT(
+            'ingest_run_id', :v_ingest_run_id,
+            'status', :v_stb_status,
+            'start_time', :v_stb_start_time,
+            'end_time', :v_stb_end_time,
+            'duration_sec', :v_stb_duration_sec,
+            'records_inserted', :v_b_inserted_records,
+            'error', :v_stb_error,
+            'procedure_name', :v_stage_to_bronze_proc,
+            'result', :v_stb_result
+        ),
+
+        'bronze_to_silver', OBJECT_CONSTRUCT(
+            'status', :v_bts_status,
+            'start_time', :v_bts_start_time,
+            'end_time', :v_bts_end_time,
+            'duration_sec', :v_bts_duration_sec,
+            'records_inserted', :v_s_inserted_records,
+            'records_updated', :v_s_updated_records,
+            'error', :v_bts_error,
+            'procedure_name', :v_bronze_to_silver_proc,
+            'result', :v_bts_result
+        ),
+
+        'silver_to_gold', OBJECT_CONSTRUCT(
+            'status', :v_stg_status,
+            'start_time', :v_stg_start_time,
+            'end_time', :v_stg_end_time,
+            'duration_sec', :v_stg_duration_sec,
+            'records_inserted', :v_g_inserted_records,
+            'records_updated', :v_g_updated_records,
+            'records_deleted', :v_g_deleted_records,
+            'error', :v_stg_error,
+            'procedure_name', :v_silver_to_gold_proc,
+            'result', :v_stg_result
+        )
+    );
+
     RETURN  OBJECT_CONSTRUCT(
             'batch_start_time', :v_batch_start_time,
             'batch_end_time', :v_batch_end_time,
             'total_duration_sec', DATEDIFF(SECOND, :v_batch_start_time, :v_batch_end_time),
             'stage_path', :STAGE_PATH_PARAM,
+            'souce_type', :v_source_type,
 
             'stage_to_bronze', OBJECT_CONSTRUCT(
                 'ingest_run_id', :v_ingest_run_id,
@@ -485,65 +609,43 @@ BEGIN
             )
         );
 
--- EXCEPTION
---     WHEN OTHER THEN
---         -- Log critical failure
---         BEGIN
---             UPDATE COMMON.BATCH
---             SET
---                 BATCH_LOG = OBJECT_CONSTRUCT(
---                     'critical_error', SQLERRM,
---                     'error_timestamp', CURRENT_TIMESTAMP(),
---                     'batch_start_time', :v_batch_start_time,
---                     'stage_to_bronze_status', :v_stb_status,
---                     'bronze_to_silver_status', :v_bts_status,
---                     'silver_to_gold_status', :v_stg_status
---                 )
---             WHERE BATCH_ID = :v_batch_id;
---         EXCEPTION
---             WHEN OTHER THEN
---                 NULL;
---         END;
+EXCEPTION
+    WHEN OTHER THEN
+        -- Log critical failure
+        BEGIN
+            UPDATE COMMON.BATCH
+            SET
+                BATCH_LOG = OBJECT_CONSTRUCT(
+                    'critical_error', SQLERRM,
+                    'error_timestamp', CURRENT_TIMESTAMP(),
+                    'batch_start_time', :v_batch_start_time,
+                    'stage_to_bronze_status', :v_stb_status,
+                    'bronze_to_silver_status', :v_bts_status,
+                    'silver_to_gold_status', :v_stg_status
+                )
+            WHERE BATCH_ID = :v_batch_id;
+        EXCEPTION
+            WHEN OTHER THEN
+                NULL;
+        END;
 
---         RETURN 'CRITICAL FAILURE | BATCH_ID=' || :v_batch_id || ' | ' || SQLERRM;
+        RETURN 'CRITICAL FAILURE | BATCH_ID=' || :v_batch_id || ' | ' || SQLERRM;
 
 END;
 $$;
 
--- Execute the pipeline
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_01-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_ADDRESS_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/customer_address/customer_address_03-01-2025.csv');
-
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_03-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('CUSTOMER_PIPELINE', 'customer_04-01-2025_invalid.csv');
-
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_01-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_AGENT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery_agent/delivery_agent_03-01-2025.csv');
-
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_01-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', 'location_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_03-01-2025csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_04-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_05-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('LOCATION_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/location/location_06-01-2025.csv');
-
-CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_01-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_02-01-2025.csv.csv');
-CALL COMMON.SP_IMPORT_MASTER('MENU_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/menu/menu_03-01-2025.csv');
-
-CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/restaurant/restaurant_01-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', 'restaurant_02-01-2025.csv');
-CALL COMMON.SP_IMPORT_MASTER('RESTAURANT_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/restaurant/restaurant_03-01-2025.csv');
-
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/delivery-initial-load.csv');
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/day-01-delivery.csv');
-CALL COMMON.SP_IMPORT_MASTER('DELIVERY_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/delivery/day-02-delivery.csv');
-
-CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/order-item-initial.csv');
-CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/day-01-order-item.csv');
-CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/day-02-order-item.csv');
-CALL COMMON.SP_IMPORT_MASTER('ORDER_ITEM_PIPELINE', '@"SWIGGY"."BRONZE"."CSV_STG"/order_item/order-item-initial-v2.csv');
+-- =====================================================
+-- PIPELINE_EXECUTION_RESULT
+-- =====================================================
+CREATE OR REPLACE TABLE COMMON.PIPELINE_EXECUTION_RESULT (
+    PIPELINE_RUN_ID STRING DEFAULT UUID_STRING(),
+    TASK_NAME STRING,
+    PIPELINE_NAME STRING,
+    BATCH_START_TIME TIMESTAMP_TZ,
+    BATCH_END_TIME TIMESTAMP_TZ,
+    TOTAL_DURATION_SEC NUMBER,
+    STAGE_PATH STRING,
+    SOURCE_TYPE STRING,
+    RESULT VARIANT,
+    CREATED_AT TIMESTAMP_TZ DEFAULT CURRENT_TIMESTAMP()
+);
