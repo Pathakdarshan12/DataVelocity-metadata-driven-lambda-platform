@@ -93,8 +93,46 @@ DataVelocity processes food delivery transaction data through a three-tier medal
 [//]: # ()
 [//]: # (```)
 
+## Data Architecture
+
 ```mermaid
-%% include: docs/architecture.mmd
+flowchart TB
+
+    subgraph Batch_Layer["Batch Layer"]
+        S3["AWS S3<br/>(CSV Files / External Stage)"]
+    end
+
+    subgraph Speed_Layer["Speed Layer"]
+        Kafka["Kafka Events"]
+        Streams["Stream Tables<br/>→ Stream CDC"]
+        Kafka --> Streams
+    end
+
+    subgraph Bronze["BRONZE LAYER"]
+        B1["Raw data ingestion"]
+        B2["Schema-on-read with type conversion"]
+        B3["Audit columns (ingest_run_id, etc.)"]
+    end
+
+    subgraph Silver["SILVER LAYER"]
+        S1["Cleansed & validated data"]
+        S2["Business key enforcement"]
+        S3["MERGE operations (Upsert logic)"]
+    end
+
+    subgraph Gold["GOLD LAYER"]
+        G1["Dimensional models (SCD Type 2)"]
+        G2["Fact tables (append-only / status-based)"]
+        G3["Analytical aggregations (Data Marts)"]
+    end
+
+    DQ["Data Quality Validation<br/>(SP_EXECUTE_DATA_QUALITY_VALIDATION)"]
+    SCD["SCD Type 2 Processing<br/>(Hash-based change detection)"]
+
+    S3 --> Bronze
+    Streams --> Bronze
+    Bronze --> DQ --> Silver
+    Silver --> SCD --> Gold
 ```
 
 ## Technical Stack
