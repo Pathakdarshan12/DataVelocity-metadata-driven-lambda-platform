@@ -1,0 +1,126 @@
+graph TB
+    subgraph "DATA SOURCES"
+        S3[("AWS S3<br/>CSV Files<br/>Batch Data")]
+        KAFKA[("Apache Kafka<br/>Real-time Events<br/>orders-events<br/>order-items-events<br/>delivery-events")]
+    end
+
+    subgraph "INGESTION LAYER"
+        STAGE["Snowflake Stage<br/>@BRONZE.CSV_STG<br/>File Format: FF_CSV_COMMA"]
+        PRODUCER["Kafka Producer<br/>producer.py<br/>Event Generator"]
+        CONNECT["Kafka Connect<br/>Snowpipe Streaming<br/>< 5 sec latency"]
+        
+        PRODUCER -->|"Produces Events"| KAFKA
+        KAFKA -->|"Snowpipe Streaming"| CONNECT
+        S3 -->|"COPY INTO"| STAGE
+    end
+
+    subgraph "BRONZE LAYER - Raw Data Landing"
+        BRZ_BATCH[("Bronze Tables<br/>*_BRZ<br/>-Raw + RAW columns<br/>-INGEST_RUN_ID<br/>-Type conversion")]
+        BRZ_STREAM[("Stream Tables<br/>*_STREAM<br/>-RECORD_METADATA<br/>-RECORD_CONTENT<br/>-VARIANT columns")]
+        
+        STAGE -->|"SP_*_STAGE_TO_BRONZE<br/>(P_SOURCE_TYPE='FILE')"| BRZ_BATCH
+        CONNECT -->|"Direct Insert"| BRZ_STREAM
+        
+        BRZ_STREAM -->|"Views<br/>V_*_STREAM"| STREAM_VIEW["Parsed Event Views<br/>Extract JSON fields<br/>Type casting"]
+        STREAM_VIEW -->|"Snowflake Streams<br/>STREAM_*_CHANGES<br/>APPEND_ONLY=TRUE"| CDC["CDC Layer<br/>Captures new records"]
+        CDC -->|"SP_*_STAGE_TO_BRONZE<br/>(P_SOURCE_TYPE='STREAM')"| BRZ_BATCH
+    end
+
+    subgraph "DATA QUALITY LAYER"
+        DQ_CONFIG[("DQ_CONFIG Table<br/>-MANDATORY_CHECK<br/>-VALUE_CHECK<br/>-LOOKUP_CHECK<br/>-DUPLICATE_ALLOW_ONE_CHECK")]
+        DQ_PROC["SP_EXECUTE_DATA_QUALITY_VALIDATION<br/>1. Fetch active rules<br/>2. Execute in priority order<br/>3. Mark invalid records<br/>4. Log errors"]
+        ERROR_TABLES[("*_LOAD_ERROR Tables<br/>-ERROR_ID<br/>-VALIDATE_COLUMN<br/>-VALIDATION_TYPE<br/>-ERROR_MESSAGE")]
+        
+        DQ_CONFIG -->|"Rule Definitions"| DQ_PROC
+        DQ_PROC -->|"Log Errors"| ERROR_TABLES
+    end
+
+    subgraph "SILVER LAYER - Cleansed Data"
+        SLV_TABLES[("Silver Tables<br/>*_SLV<br/>-Business Keys<br/>-Valid data only<br/>-BATCH_ID tracking")]
+        
+        BRZ_BATCH -->|"SP_*_BRONZE_TO_SILVER<br/>1. Create staging<br/>2. Run DQ validation<br/>3. MERGE valid records"| DQ_PROC
+        DQ_PROC -->|"IS_VALID flag"| SLV_TABLES
+    end
+
+    subgraph "GOLD LAYER - Analytics Ready"
+        DIM_TABLES[("Dimension Tables<br/>DIM_*<br/>SCD Type 2:<br/>-STATUS (ACTIVE/INACTIVE)<br/>-EFF_START_DT<br/>-EFF_END_DT<br/>-Hash-based change detection")]
+        FACT_TABLES[("Fact Tables<br/>FACT_*<br/>Orders:<br/>-CURRENT_STATUS<br/>-INITIAL_STATUS<br/>-STATUS_UPDATED_AT<br/>Order Items: Append-only<br/>Delivery: Status tracking")]
+        HISTORY_TABLES[("Status History<br/>FACT_*_STATUS_HISTORY<br/>-OLD_STATUS<br/>-NEW_STATUS<br/>-STATUS_CHANGED_AT")]
+        
+        SLV_TABLES -->|"SP_*_SILVER_TO_GOLD<br/>1. Create staging w/ hash<br/>2. Expire changed (UPDATE)<br/>3. Insert new versions"| DIM_TABLES
+        SLV_TABLES -->|"MERGE w/ status tracking"| FACT_TABLES
+        FACT_TABLES -->|"Before UPDATE"| HISTORY_TABLES
+    end
+
+    subgraph "ORCHESTRATION"
+        MASTER_PROC["SP_IMPORT_MASTER<br/>(P_PIPELINE_NAME, P_FILE_NAME)<br/>Coordinates 3-phase ETL:<br/>Phase 1: Stage → Bronze<br/>Phase 2: Bronze → Silver<br/>Phase 3: Silver → Gold"]
+        CONFIG_TABLE[("IMPORT_CONFIGURATION<br/>-PIPELINE_NAME<br/>-SOURCE_TYPE (FILE/STREAM)<br/>-BRONZE_TABLE<br/>-SILVER_TABLE<br/>-GOLD_TABLE<br/>-Procedure names")]
+        BATCH_TABLE[("BATCH Table<br/>-BATCH_ID<br/>-Execution metrics<br/>-Row counts<br/>-Duration<br/>-BATCH_LOG (VARIANT)")]
+        INGEST_RUN[("INGEST_RUN Table<br/>-INGEST_RUN_ID<br/>-RUN_STATUS<br/>-SOURCE_ROW_COUNT<br/>-VALID_ROW_COUNT<br/>-INVALID_ROW_COUNT")]
+        TASKS["Snowflake Tasks<br/>TASK_*_STREAM_TO_GOLD<br/>SCHEDULE: '5 MINUTE'<br/>WHEN: SYSTEM$STREAM_HAS_DATA()"]
+        
+        CONFIG_TABLE -->|"Metadata"| MASTER_PROC
+        MASTER_PROC -->|"Logs"| BATCH_TABLE
+        MASTER_PROC -->|"Logs"| INGEST_RUN
+        TASKS -->|"Triggers"| MASTER_PROC
+    end
+
+    subgraph "ANALYTICS LAYER"
+        DIM_DATE[("DIM_DATE<br/>Recursive CTE<br/>Date dimension")]
+        MART_ORDERS[("MART_ORDER<br/>Denormalized star schema<br/>Joins all dimensions")]
+        
+        DIM_TABLES --> MART_ORDERS
+        FACT_TABLES --> MART_ORDERS
+        DIM_DATE --> MART_ORDERS
+    end
+
+    subgraph "MONITORING & OBSERVABILITY"
+        VIEWS["Monitoring Views<br/>VW_STREAMING_PIPELINE_HEALTH<br/>VW_STREAMING_METRICS<br/>VW_STREAMING_LATENCY<br/>VW_TASK_EXECUTION_STATUS"]
+        QUERY_HISTORY["Snowflake Query History<br/>Performance monitoring"]
+        
+        BATCH_TABLE --> VIEWS
+        INGEST_RUN --> VIEWS
+        TASKS --> QUERY_HISTORY
+    end
+
+    subgraph "KEY ENTITIES"
+        E1["Customer (SCD2)<br/>PII: Mobile, Email, DOB"]
+        E2["Customer Address (SCD2)"]
+        E3["Location (SCD2)<br/>Enrichment: State codes, tiers"]
+        E4["Restaurant (SCD2)"]
+        E5["Menu (SCD2)"]
+        E6["Delivery Agent (SCD2)"]
+        E7["Order (Fact w/ status)"]
+        E8["Order Item (Append-only)"]
+        E9["Delivery (Fact w/ status)"]
+        
+        E1 -.->|"References"| E2
+        E2 -.->|"References"| E3
+        E7 -.->|"References"| E1
+        E7 -.->|"References"| E4
+        E8 -.->|"References"| E7
+        E8 -.->|"References"| E5
+        E9 -.->|"References"| E7
+        E9 -.->|"References"| E6
+    end
+
+    subgraph "TRANSACTION MANAGEMENT"
+        TXN["Transaction Pattern:<br/>BEGIN TRANSACTION<br/>  - Consume sequence<br/>  - Load to temp table<br/>  - Insert to bronze<br/>COMMIT (on success)<br/>ROLLBACK (on error)"]
+    end
+
+    subgraph "PERFORMANCE OPTIMIZATIONS"
+        CLUSTER["Clustering Keys:<br/>Bronze: INGEST_RUN_ID<br/>Silver: Business keys<br/>Gold: Surrogate + STATUS + EFF_START_DT"]
+        HASH["Hash-based SCD2:<br/>SHA2_HEX(CONCAT_WS()) for change detection<br/>Single comparison vs. multi-column"]
+        WAREHOUSE["Compute:<br/>ADHOC_WH (X-Small)<br/>Auto-suspend: 60s<br/>Single-cluster"]
+    end
+
+    style S3 fill:#ff9999
+    style KAFKA fill:#ff9999
+    style BRZ_BATCH fill:#ffcc99
+    style BRZ_STREAM fill:#ffcc99
+    style SLV_TABLES fill:#99ccff
+    style DIM_TABLES fill:#99ff99
+    style FACT_TABLES fill:#99ff99
+    style MASTER_PROC fill:#ff99ff
+    style DQ_PROC fill:#ffff99
+    style TASKS fill:#ff99ff
