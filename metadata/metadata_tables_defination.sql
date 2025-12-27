@@ -100,6 +100,7 @@ CREATE OR REPLACE TABLE COMMON.TARGET_TABLE_MAPPING (
 -- =======================================================================================================================================
 -- UPDATED SP_BUILD_COPY_SQL - Excludes Auto-Increment PKs
 -- =======================================================================================================================================
+CALL COMMON.SP_BUILD_COPY_SQL(103, 'ORDERS', 1);
 CREATE OR REPLACE PROCEDURE COMMON.SP_BUILD_COPY_SQL(
     P_SOURCE_ID        NUMBER,
     P_FILE_NAME        STRING,
