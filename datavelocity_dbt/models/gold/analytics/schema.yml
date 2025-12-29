@@ -1,0 +1,464 @@
+version: 2
+
+models:
+  # ============================================================================
+  # CUSTOMER ANALYTICS MARTS
+  # ============================================================================
+
+  - name: mart_customer_cohort_analysis
+    description: "Customer cohort analysis tracking retention and behavior patterns by customer acquisition period"
+    config:
+      tags: ['mart', 'customer', 'cohort', 'analytics']
+    columns:
+      - name: COHORT_MONTH
+        description: "Month when customer first ordered"
+        data_tests:
+          - not_null
+      - name: CUSTOMER_ID
+        description: "Unique customer identifier"
+        data_tests:
+          - not_null
+      - name: MONTHS_SINCE_FIRST_ORDER
+        description: "Number of months since first order"
+      - name: TOTAL_ORDERS
+        description: "Total orders placed by customer"
+      - name: TOTAL_SPEND
+        description: "Total amount spent by customer"
+      - name: AVG_ORDER_VALUE
+        description: "Average order value"
+      - name: IS_RETAINED
+        description: "Flag indicating if customer ordered again"
+
+  - name: mart_customer_order_summary
+    description: "Comprehensive customer-level summary of ordering behavior and spend patterns"
+    config:
+      tags: ['mart', 'customer', 'summary', 'kpi']
+    columns:
+      - name: CUSTOMER_ID
+        description: "Unique customer identifier"
+        data_tests:
+          - unique
+          - not_null
+      - name: CUSTOMER_NAME
+        description: "Customer name"
+      - name: FIRST_ORDER_DATE
+        description: "Date of first order"
+      - name: LAST_ORDER_DATE
+        description: "Date of most recent order"
+      - name: TOTAL_ORDERS
+        description: "Total number of orders"
+      - name: TOTAL_SPEND
+        description: "Total amount spent"
+      - name: AVG_ORDER_VALUE
+        description: "Average order value"
+      - name: TOTAL_ITEMS_ORDERED
+        description: "Total items across all orders"
+      - name: DAYS_SINCE_LAST_ORDER
+        description: "Days since last order"
+      - name: CUSTOMER_LIFETIME_VALUE
+        description: "Lifetime value calculation"
+
+  - name: mart_customer_restaurant_preferences
+    description: "Analysis of customer preferences by restaurant, cuisine type, and ordering patterns"
+    config:
+      tags: ['mart', 'customer', 'restaurant', 'preferences']
+    columns:
+      - name: CUSTOMER_ID
+        description: "Unique customer identifier"
+        data_tests:
+          - not_null
+      - name: RESTAURANT_ID
+        description: "Restaurant identifier"
+      - name: RESTAURANT_NAME
+        description: "Restaurant name"
+      - name: CUISINE_TYPE
+        description: "Type of cuisine"
+      - name: TOTAL_ORDERS
+        description: "Number of orders from this restaurant"
+      - name: TOTAL_SPEND
+        description: "Total spend at this restaurant"
+      - name: FAVORITE_ITEMS
+        description: "Most frequently ordered items"
+      - name: LAST_ORDER_DATE
+        description: "Last order date from this restaurant"
+
+  - name: mart_customer_time_patterns
+    description: "Customer ordering behavior by time dimensions (hour, day, week, month)"
+    config:
+      tags: ['mart', 'customer', 'time', 'behavior']
+    columns:
+      - name: CUSTOMER_ID
+        description: "Unique customer identifier"
+        data_tests:
+          - not_null
+      - name: PREFERRED_ORDER_HOUR
+        description: "Most common hour of day for orders"
+      - name: PREFERRED_ORDER_DAY
+        description: "Most common day of week"
+      - name: WEEKEND_ORDER_PCT
+        description: "Percentage of orders on weekends"
+      - name: PEAK_ORDERING_TIME
+        description: "Peak ordering time window"
+      - name: AVG_ORDERS_PER_WEEK
+        description: "Average orders per week"
+
+  # ============================================================================
+  # DELIVERY ANALYTICS MARTS
+  # ============================================================================
+
+  - name: mart_delivery_agent_performance
+    description: "Delivery agent performance metrics including speed, volume, and customer ratings"
+    config:
+      tags: ['mart', 'delivery', 'agent', 'performance']
+    columns:
+      - name: DELIVERY_AGENT_ID
+        description: "Unique delivery agent identifier"
+        data_tests:
+          - unique
+          - not_null
+      - name: DELIVERY_AGENT_NAME
+        description: "Agent name"
+      - name: TOTAL_DELIVERIES
+        description: "Total number of deliveries completed"
+      - name: AVG_DELIVERY_TIME
+        description: "Average delivery time in minutes"
+      - name: ON_TIME_DELIVERY_PCT
+        description: "Percentage of on-time deliveries"
+      - name: CUSTOMER_RATING
+        description: "Average customer rating"
+      - name: VEHICLE_TYPE
+        description: "Type of vehicle used"
+      - name: ACTIVE_DAYS
+        description: "Number of days active"
+
+  - name: mart_delivery_location_performance
+    description: "Delivery performance analysis by geographic location and zone"
+    config:
+      tags: ['mart', 'delivery', 'location', 'geography']
+    columns:
+      - name: LOCATION_ID
+        description: "Location identifier"
+        data_tests:
+          - not_null
+      - name: CITY
+        description: "City name"
+      - name: STATE
+        description: "State name"
+      - name: TOTAL_DELIVERIES
+        description: "Total deliveries to this location"
+      - name: AVG_DELIVERY_TIME
+        description: "Average delivery time"
+      - name: SUCCESS_RATE
+        description: "Successful delivery rate"
+      - name: PEAK_DELIVERY_HOURS
+        description: "Peak delivery hours for this location"
+
+  - name: mart_delivery_status_transitions
+    description: "Analysis of delivery status changes and transition patterns"
+    config:
+      tags: ['mart', 'delivery', 'status', 'workflow']
+    columns:
+      - name: FROM_STATUS
+        description: "Previous status"
+      - name: TO_STATUS
+        description: "New status"
+      - name: TOTAL_TRANSITIONS
+        description: "Number of transitions"
+      - name: AVG_TRANSITION_TIME
+        description: "Average time for this transition"
+      - name: TRANSITION_DATE
+        description: "Date of transition"
+
+  - name: mart_delivery_time_analysis
+    description: "Delivery time analysis by various dimensions including day part, day of week, and location"
+    config:
+      tags: ['mart', 'delivery', 'time', 'analysis']
+    columns:
+      - name: DELIVERY_DATE
+        description: "Delivery date"
+      - name: DAY_OF_WEEK
+        description: "Day of week"
+      - name: HOUR_OF_DAY
+        description: "Hour of day"
+      - name: TOTAL_DELIVERIES
+        description: "Total deliveries"
+      - name: AVG_DELIVERY_TIME
+        description: "Average delivery time"
+      - name: MIN_DELIVERY_TIME
+        description: "Minimum delivery time"
+      - name: MAX_DELIVERY_TIME
+        description: "Maximum delivery time"
+
+  # ============================================================================
+  # ORDER ANALYTICS MARTS
+  # ============================================================================
+
+  - name: mart_orders
+    description: "Comprehensive order-level mart with customer, restaurant, and delivery information"
+    config:
+      tags: ['mart', 'order', 'comprehensive']
+    columns:
+      - name: ORDER_ID
+        description: "Unique order identifier"
+        data_tests:
+          - unique
+          - not_null
+      - name: CUSTOMER_ID
+        description: "Customer identifier"
+      - name: RESTAURANT_ID
+        description: "Restaurant identifier"
+      - name: ORDER_TIMESTAMP
+        description: "Order timestamp"
+      - name: ORDER_TOTAL
+        description: "Total order amount"
+      - name: TOTAL_ITEMS
+        description: "Number of items"
+      - name: DELIVERY_STATUS
+        description: "Current delivery status"
+      - name: DELIVERY_TIME
+        description: "Actual delivery time"
+
+  - name: mart_order_cohort_analysis
+    description: "Order cohort analysis tracking patterns and trends by order date cohorts"
+    config:
+      tags: ['mart', 'order', 'cohort']
+    columns:
+      - name: ORDER_COHORT
+        description: "Order cohort period"
+      - name: TOTAL_ORDERS
+        description: "Total orders in cohort"
+      - name: TOTAL_CUSTOMERS
+        description: "Total customers in cohort"
+      - name: AVG_ORDER_VALUE
+        description: "Average order value"
+      - name: REPEAT_ORDER_RATE
+        description: "Rate of repeat orders"
+
+  - name: mart_order_customer_journey
+    description: "Customer journey analysis tracking progression through order lifecycle"
+    config:
+      tags: ['mart', 'order', 'customer', 'journey']
+    columns:
+      - name: CUSTOMER_ID
+        description: "Customer identifier"
+      - name: ORDER_NUMBER
+        description: "Sequential order number for customer"
+      - name: ORDER_ID
+        description: "Order identifier"
+      - name: DAYS_SINCE_LAST_ORDER
+        description: "Days since previous order"
+      - name: CUMULATIVE_SPEND
+        description: "Cumulative spend to date"
+      - name: ORDER_FREQUENCY
+        description: "Order frequency metric"
+
+  - name: mart_order_fulfillment_analysis
+    description: "Order fulfillment metrics tracking preparation and delivery efficiency"
+    config:
+      tags: ['mart', 'order', 'fulfillment', 'operations']
+    columns:
+      - name: ORDER_ID
+        description: "Order identifier"
+      - name: RESTAURANT_ID
+        description: "Restaurant identifier"
+      - name: PREP_TIME
+        description: "Food preparation time"
+      - name: DELIVERY_TIME
+        description: "Delivery time"
+      - name: TOTAL_FULFILLMENT_TIME
+        description: "Total time from order to delivery"
+      - name: ON_TIME_FLAG
+        description: "Whether delivered on time"
+
+  - name: mart_order_payment_analysis
+    description: "Order payment analysis including payment methods, amounts, and patterns"
+    config:
+      tags: ['mart', 'order', 'payment', 'financial']
+    columns:
+      - name: ORDER_ID
+        description: "Order identifier"
+      - name: PAYMENT_METHOD
+        description: "Payment method used"
+      - name: ORDER_TOTAL
+        description: "Total order amount"
+      - name: DISCOUNT_AMOUNT
+        description: "Discount applied"
+      - name: FINAL_AMOUNT
+        description: "Final amount paid"
+      - name: PAYMENT_STATUS
+        description: "Payment status"
+
+  - name: mart_order_restaurant_performance
+    description: "Restaurant performance metrics based on order volume, value, and customer satisfaction"
+    config:
+      tags: ['mart', 'order', 'restaurant', 'performance']
+    columns:
+      - name: RESTAURANT_ID
+        description: "Restaurant identifier"
+        data_tests:
+          - not_null
+      - name: RESTAURANT_NAME
+        description: "Restaurant name"
+      - name: TOTAL_ORDERS
+        description: "Total orders received"
+      - name: TOTAL_REVENUE
+        description: "Total revenue generated"
+      - name: AVG_ORDER_VALUE
+        description: "Average order value"
+      - name: UNIQUE_CUSTOMERS
+        description: "Number of unique customers"
+      - name: CUSTOMER_RETENTION_RATE
+        description: "Customer retention rate"
+
+  - name: mart_order_status_analysis
+    description: "Order status tracking and analysis including status transitions and durations"
+    config:
+      tags: ['mart', 'order', 'status', 'tracking']
+    columns:
+      - name: ORDER_ID
+        description: "Order identifier"
+      - name: CURRENT_STATUS
+        description: "Current order status"
+      - name: STATUS_DURATION
+        description: "Time in current status"
+      - name: TOTAL_STATUS_CHANGES
+        description: "Number of status changes"
+      - name: LAST_STATUS_CHANGE
+        description: "Last status change timestamp"
+
+  - name: mart_order_summary
+    description: "High-level order summary with key metrics and dimensions for executive reporting"
+    config:
+      tags: ['mart', 'order', 'summary', 'executive']
+    columns:
+      - name: ORDER_DATE
+        description: "Order date"
+      - name: TOTAL_ORDERS
+        description: "Total number of orders"
+      - name: TOTAL_REVENUE
+        description: "Total revenue"
+      - name: AVG_ORDER_VALUE
+        description: "Average order value"
+      - name: TOTAL_CUSTOMERS
+        description: "Total unique customers"
+      - name: NEW_CUSTOMERS
+        description: "Number of new customers"
+      - name: REPEAT_CUSTOMERS
+        description: "Number of repeat customers"
+
+  - name: mart_order_time_analysis
+    description: "Order temporal analysis by hour, day, week, month with trending and seasonality"
+    config:
+      tags: ['mart', 'order', 'time', 'trending']
+    columns:
+      - name: ORDER_DATE
+        description: "Order date"
+      - name: HOUR_OF_DAY
+        description: "Hour of day (0-23)"
+      - name: DAY_OF_WEEK
+        description: "Day of week"
+      - name: WEEK_OF_YEAR
+        description: "Week of year"
+      - name: MONTH
+        description: "Month"
+      - name: TOTAL_ORDERS
+        description: "Total orders"
+      - name: TOTAL_REVENUE
+        description: "Total revenue"
+      - name: PEAK_HOUR_FLAG
+        description: "Flag for peak hours"
+
+  # ============================================================================
+  # RESTAURANT ANALYTICS MARTS
+  # ============================================================================
+
+  - name: mart_cuisine_performance
+    description: "Cuisine type performance analysis with ordering trends and popularity metrics"
+    config:
+      tags: ['mart', 'restaurant', 'cuisine', 'performance']
+    columns:
+      - name: CUISINE_TYPE
+        description: "Type of cuisine"
+        data_tests:
+          - not_null
+      - name: TOTAL_RESTAURANTS
+        description: "Number of restaurants serving this cuisine"
+      - name: TOTAL_ORDERS
+        description: "Total orders for this cuisine"
+      - name: TOTAL_REVENUE
+        description: "Total revenue"
+      - name: AVG_ORDER_VALUE
+        description: "Average order value"
+      - name: POPULARITY_RANK
+        description: "Popularity ranking"
+
+  - name: mart_restaurant_menu_performance
+    description: "Menu item performance by restaurant including bestsellers and revenue contribution"
+    config:
+      tags: ['mart', 'restaurant', 'menu', 'performance']
+    columns:
+      - name: RESTAURANT_ID
+        description: "Restaurant identifier"
+        data_tests:
+          - not_null
+      - name: MENU_ID
+        description: "Menu item identifier"
+      - name: ITEM_NAME
+        description: "Menu item name"
+      - name: TOTAL_ORDERS
+        description: "Times ordered"
+      - name: TOTAL_REVENUE
+        description: "Revenue generated"
+      - name: AVG_RATING
+        description: "Average customer rating"
+      - name: REVENUE_CONTRIBUTION_PCT
+        description: "Percentage of restaurant revenue"
+
+  - name: mart_restaurant_performance
+    description: "Overall restaurant performance metrics including orders, revenue, ratings, and efficiency"
+    config:
+      tags: ['mart', 'restaurant', 'performance', 'kpi']
+    columns:
+      - name: RESTAURANT_ID
+        description: "Restaurant identifier"
+        data_tests:
+          - unique
+          - not_null
+      - name: RESTAURANT_NAME
+        description: "Restaurant name"
+      - name: CUISINE_TYPE
+        description: "Cuisine type"
+      - name: TOTAL_ORDERS
+        description: "Total orders"
+      - name: TOTAL_REVENUE
+        description: "Total revenue"
+      - name: AVG_ORDER_VALUE
+        description: "Average order value"
+      - name: UNIQUE_CUSTOMERS
+        description: "Unique customers"
+      - name: AVG_PREP_TIME
+        description: "Average preparation time"
+      - name: CUSTOMER_RATING
+        description: "Average customer rating"
+
+  - name: mart_restaurant_time_performance
+    description: "Restaurant performance by time dimensions showing peak hours and day patterns"
+    config:
+      tags: ['mart', 'restaurant', 'time', 'performance']
+    columns:
+      - name: RESTAURANT_ID
+        description: "Restaurant identifier"
+        data_tests:
+          - not_null
+      - name: HOUR_OF_DAY
+        description: "Hour of day"
+      - name: DAY_OF_WEEK
+        description: "Day of week"
+      - name: TOTAL_ORDERS
+        description: "Total orders"
+      - name: AVG_ORDER_VALUE
+        description: "Average order value"
+      - name: PEAK_HOUR_FLAG
+        description: "Peak hour indicator"
+      - name: PREP_TIME_AVG
+        description: "Average preparation time"

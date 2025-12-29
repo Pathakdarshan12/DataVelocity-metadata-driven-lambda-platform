@@ -32,16 +32,4 @@ models:
       analytics:
         +tags: ["mart", "analytics"]
         +materialized: table
-        +schema: analytics  # Creates ANALYTICS schema instead of GOLD
-
-        customer:
-          +tags: ["mart", "customer"]
-
-        delivery:
-          +tags: ["mart", "delivery"]
-
-        orders:
-          +tags: ["mart", "orders"]
-
-        restaurant:
-          +tags: ["mart", "restaurant"]
+        +schema: analytics

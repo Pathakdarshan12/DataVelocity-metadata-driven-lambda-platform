@@ -1,0 +1,136 @@
+{{
+    config(
+        materialized='table',
+        tags=['analytics', 'orders', 'daily'],
+        description='Order status tracking and transition analysis'
+    )
+}}
+
+WITH order_base AS (
+    SELECT
+        o.ORDER_ID,
+        o.ORDER_DATE,
+        o.CUSTOMER_ID,
+        o.RESTAURANT_ID,
+        o.TOTAL_AMOUNT,
+        o.CURRENT_STATUS,
+        o.INITIAL_STATUS,
+        o.STATUS_UPDATED_AT,
+        o.CREATED_AT,
+        r.RESTAURANT_NAME,
+        r.CUISINE_TYPE,
+        c.NAME AS CUSTOMER_NAME
+    FROM {{ ref('fact_order') }} o
+    LEFT JOIN {{ ref('dim_restaurant') }} r
+        ON o.RESTAURANT_ID = r.RESTAURANT_ID
+    LEFT JOIN {{ ref('dim_customer') }} c
+        ON o.CUSTOMER_ID = c.CUSTOMER_ID
+),
+
+status_transitions AS (
+    SELECT
+        osh.ORDER_ID,
+        osh.OLD_STATUS,
+        osh.NEW_STATUS,
+        osh.STATUS_CHANGED_AT,
+        LAG(osh.STATUS_CHANGED_AT) OVER (
+            PARTITION BY osh.ORDER_ID
+            ORDER BY osh.STATUS_CHANGED_AT
+        ) AS PREVIOUS_STATUS_TIME,
+        ROW_NUMBER() OVER (
+            PARTITION BY osh.ORDER_ID
+            ORDER BY osh.STATUS_CHANGED_AT
+        ) AS STATUS_SEQUENCE_NUMBER,
+        COUNT(*) OVER (
+            PARTITION BY osh.ORDER_ID
+        ) AS TOTAL_STATUS_CHANGES
+    FROM {{ ref('fact_order_status_history') }} osh
+),
+
+status_durations AS (
+    SELECT
+        ORDER_ID,
+        OLD_STATUS,
+        NEW_STATUS,
+        STATUS_CHANGED_AT,
+        STATUS_SEQUENCE_NUMBER,
+        TOTAL_STATUS_CHANGES,
+        DATEDIFF(
+            MINUTE,
+            PREVIOUS_STATUS_TIME,
+            STATUS_CHANGED_AT
+        ) AS MINUTES_IN_PREVIOUS_STATUS
+    FROM status_transitions
+)
+
+SELECT
+    ob.ORDER_ID,
+    ob.ORDER_DATE,
+    ob.CUSTOMER_ID,
+    ob.CUSTOMER_NAME,
+    ob.RESTAURANT_ID,
+    ob.RESTAURANT_NAME,
+    ob.CUISINE_TYPE,
+    ob.TOTAL_AMOUNT,
+    ob.CURRENT_STATUS,
+    ob.INITIAL_STATUS,
+    ob.STATUS_UPDATED_AT,
+
+    -- Status History Summary
+    MAX(sd.TOTAL_STATUS_CHANGES) AS TOTAL_STATUS_CHANGES,
+
+    -- Time in Each Status
+    SUM(CASE WHEN sd.OLD_STATUS = 'PENDING'
+        THEN sd.MINUTES_IN_PREVIOUS_STATUS ELSE 0 END) AS MINUTES_IN_PENDING,
+    SUM(CASE WHEN sd.OLD_STATUS = 'CONFIRMED'
+        THEN sd.MINUTES_IN_PREVIOUS_STATUS ELSE 0 END) AS MINUTES_IN_CONFIRMED,
+    SUM(CASE WHEN sd.OLD_STATUS = 'PREPARING'
+        THEN sd.MINUTES_IN_PREVIOUS_STATUS ELSE 0 END) AS MINUTES_IN_PREPARING,
+    SUM(CASE WHEN sd.OLD_STATUS = 'READY'
+        THEN sd.MINUTES_IN_PREVIOUS_STATUS ELSE 0 END) AS MINUTES_IN_READY,
+    SUM(CASE WHEN sd.OLD_STATUS = 'OUT_FOR_DELIVERY'
+        THEN sd.MINUTES_IN_PREVIOUS_STATUS ELSE 0 END) AS MINUTES_IN_OUT_FOR_DELIVERY,
+
+    -- Total Processing Time
+    DATEDIFF(MINUTE, ob.CREATED_AT, ob.STATUS_UPDATED_AT) AS TOTAL_PROCESSING_TIME_MINS,
+
+    -- First Status Change Time
+    MIN(sd.STATUS_CHANGED_AT) AS FIRST_STATUS_CHANGE_TIME,
+    DATEDIFF(MINUTE, ob.CREATED_AT, MIN(sd.STATUS_CHANGED_AT)) AS MINUTES_TO_FIRST_STATUS_CHANGE,
+
+    -- Status Change Velocity
+    CASE
+        WHEN MAX(sd.TOTAL_STATUS_CHANGES) >= 5 THEN 'HIGH_VELOCITY'
+        WHEN MAX(sd.TOTAL_STATUS_CHANGES) >= 3 THEN 'NORMAL_VELOCITY'
+        ELSE 'LOW_VELOCITY'
+    END AS STATUS_CHANGE_VELOCITY,
+
+    -- Cancellation Analysis
+    CASE
+        WHEN ob.CURRENT_STATUS = 'CANCELLED'
+            AND MAX(sd.STATUS_SEQUENCE_NUMBER) = 1 THEN 'CANCELLED_IMMEDIATELY'
+        WHEN ob.CURRENT_STATUS = 'CANCELLED'
+            AND MAX(sd.STATUS_SEQUENCE_NUMBER) <= 3 THEN 'CANCELLED_EARLY'
+        WHEN ob.CURRENT_STATUS = 'CANCELLED' THEN 'CANCELLED_LATE'
+        ELSE 'NOT_CANCELLED'
+    END AS CANCELLATION_STAGE,
+
+    -- Success Indicators
+    CASE
+        WHEN ob.CURRENT_STATUS = 'COMPLETED'
+            AND DATEDIFF(MINUTE, ob.CREATED_AT, ob.STATUS_UPDATED_AT) <= 60
+        THEN 'FAST_COMPLETION'
+        WHEN ob.CURRENT_STATUS = 'COMPLETED' THEN 'NORMAL_COMPLETION'
+        WHEN ob.CURRENT_STATUS = 'CANCELLED' THEN 'FAILED'
+        ELSE 'IN_PROGRESS'
+    END AS ORDER_OUTCOME,
+
+    CURRENT_TIMESTAMP() AS CREATED_AT
+
+FROM order_base ob
+LEFT JOIN status_durations sd
+    ON ob.ORDER_ID = sd.ORDER_ID
+GROUP BY
+    ob.ORDER_ID, ob.ORDER_DATE, ob.CUSTOMER_ID, ob.CUSTOMER_NAME,
+    ob.RESTAURANT_ID, ob.RESTAURANT_NAME, ob.CUISINE_TYPE, ob.TOTAL_AMOUNT,
+    ob.CURRENT_STATUS, ob.INITIAL_STATUS, ob.STATUS_UPDATED_AT, ob.CREATED_AT

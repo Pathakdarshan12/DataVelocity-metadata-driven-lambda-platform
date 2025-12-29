@@ -1,0 +1,386 @@
+version: 2
+
+sources:
+  - name: gold
+    description: "Gold layer tables containing cleansed and conformed data"
+    database: DATAVELOCITY
+    schema: GOLD
+
+    tables:
+      - name: DIM_LOCATION
+        description: "Location dimension with cities, states, and geographic information. Implements SCD Type 2."
+        columns:
+          - name: LOCATION_ID
+            description: "Primary key for location"
+            data_tests:
+              - unique
+              - not_null
+          - name: CITY
+            description: "City name"
+            data_tests:
+              - not_null
+          - name: STATE
+            description: "State name"
+            data_tests:
+              - not_null
+          - name: STATE_CODE
+            description: "Two-letter state code"
+          - name: IS_UNION_TERRITORY
+            description: "Flag indicating if location is a union territory"
+          - name: CAPITAL_CITY_FLAG
+            description: "Flag indicating if city is a capital"
+          - name: CITY_TIER
+            description: "City tier classification (Tier 1, 2, 3)"
+          - name: ZIP_CODE
+            description: "Postal code"
+            data_tests:
+              - not_null
+          - name: STATUS
+            description: "Record status (ACTIVE/INACTIVE)"
+          - name: EFF_START_DT
+            description: "Effective start date for SCD Type 2"
+          - name: EFF_END_DT
+            description: "Effective end date for SCD Type 2"
+          - name: BATCH_ID
+            description: "Batch identifier for data lineage"
+            data_tests:
+              - not_null
+          - name: CREATED_AT
+            description: "Record creation timestamp"
+          - name: UPDATED_AT
+            description: "Record last update timestamp"
+
+      - name: DIM_RESTAURANT
+        description: "Restaurant dimension with operational details and location. Implements SCD Type 2."
+        columns:
+          - name: RESTAURANT_ID
+            description: "Primary key for restaurant"
+            data_tests:
+              - unique
+              - not_null
+          - name: FSSAI_REGISTRATION_NO
+            description: "FSSAI (Food Safety and Standards Authority of India) registration number"
+          - name: RESTAURANT_NAME
+            description: "Name of the restaurant"
+          - name: CUISINE_TYPE
+            description: "Type of cuisine offered"
+          - name: PRICING_FOR_TWO
+            description: "Average price for two people"
+          - name: RESTAURANT_PHONE
+            description: "Restaurant contact phone number (PII - Sensitive)"
+          - name: OPERATING_HOURS
+            description: "Restaurant operating hours"
+          - name: LOCATION_ID
+            description: "Foreign key to DIM_LOCATION"
+          - name: ACTIVE_FLAG
+            description: "Restaurant active status flag"
+          - name: OPEN_STATUS
+            description: "Current open/closed status"
+          - name: LOCALITY
+            description: "Local area or neighborhood"
+          - name: RESTAURANT_ADDRESS
+            description: "Full restaurant address"
+          - name: LATITUDE
+            description: "Geographic latitude coordinate"
+          - name: LONGITUDE
+            description: "Geographic longitude coordinate"
+          - name: BATCH_ID
+            description: "Batch identifier for data lineage"
+          - name: STATUS
+            description: "Record status (ACTIVE/INACTIVE)"
+          - name: EFF_START_DT
+            description: "Effective start date for SCD Type 2"
+          - name: EFF_END_DT
+            description: "Effective end date for SCD Type 2"
+          - name: CREATED_AT
+            description: "Record creation timestamp"
+          - name: UPDATED_AT
+            description: "Record last update timestamp"
+
+      - name: DIM_CUSTOMER
+        description: "Customer dimension with personal information. Implements SCD Type 2. Contains PII data."
+        columns:
+          - name: CUSTOMER_ID
+            description: "Primary key for customer (auto-increment)"
+            data_tests:
+              - unique
+              - not_null
+          - name: NAME
+            description: "Customer full name"
+            data_tests:
+              - not_null
+          - name: MOBILE
+            description: "Customer mobile number (PII)"
+          - name: EMAIL
+            description: "Customer email address (PII)"
+          - name: LOGIN_BY_USING
+            description: "Method used for login (email, phone, social)"
+          - name: GENDER
+            description: "Customer gender (PII)"
+          - name: DOB
+            description: "Customer date of birth (PII)"
+          - name: ANNIVERSARY
+            description: "Customer anniversary date"
+          - name: PREFERENCES
+            description: "Customer preferences and settings"
+          - name: STATUS
+            description: "Record status (ACTIVE/INACTIVE)"
+          - name: EFF_START_DT
+            description: "Effective start date for SCD Type 2"
+          - name: EFF_END_DT
+            description: "Effective end date for SCD Type 2"
+          - name: BATCH_ID
+            description: "Batch identifier for data lineage"
+            data_tests:
+              - not_null
+          - name: CREATED_AT
+            description: "Record creation timestamp"
+          - name: UPDATED_AT
+            description: "Record last update timestamp"
+
+      - name: DIM_CUSTOMER_ADDRESS
+        description: "Customer delivery addresses. Implements SCD Type 2."
+        columns:
+          - name: CUSTOMER_ADDRESS_ID
+            description: "Primary key for customer address"
+            data_tests:
+              - unique
+              - not_null
+          - name: CUSTOMER_ID
+            description: "Foreign key to DIM_CUSTOMER"
+          - name: FLAT_NO
+            description: "Flat or apartment number"
+          - name: HOUSE_NO
+            description: "House number"
+          - name: FLOOR_NO
+            description: "Floor number"
+          - name: BUILDING
+            description: "Building name"
+          - name: LANDMARK
+            description: "Nearby landmark for navigation"
+          - name: LOCALITY
+            description: "Locality or neighborhood name"
+          - name: CITY
+            description: "City name"
+          - name: STATE
+            description: "State name"
+          - name: ZIPCODE
+            description: "Postal code"
+          - name: COORDINATES
+            description: "Geographic coordinates (lat,long)"
+          - name: PRIMARY_FLAG
+            description: "Flag indicating if this is the primary address"
+          - name: ADDRESS_TYPE
+            description: "Type of address (Home, Work, Other)"
+          - name: BATCH_ID
+            description: "Batch identifier for data lineage"
+          - name: EFF_START_DATE
+            description: "Effective start date for SCD Type 2"
+          - name: EFF_END_DATE
+            description: "Effective end date for SCD Type 2"
+          - name: STATUS
+            description: "Record status (ACTIVE/INACTIVE)"
+          - name: CREATED_AT
+            description: "Record creation timestamp"
+          - name: UPDATED_AT
+            description: "Record last update timestamp"
+
+      - name: DIM_MENU
+        description: "Menu items available at restaurants"
+        columns:
+          - name: MENU_ID
+            description: "Primary key for menu item"
+            data_tests:
+              - unique
+              - not_null
+          - name: RESTAURANT_ID
+            description: "Foreign key to DIM_RESTAURANT"
+          - name: ITEM_NAME
+            description: "Name of the menu item"
+          - name: DESCRIPTION
+            description: "Description of the menu item"
+          - name: PRICE
+            description: "Price of the menu item"
+          - name: CATEGORY
+            description: "Menu item category (Appetizer, Main Course, Dessert, etc.)"
+          - name: AVAILABILITY
+            description: "Whether item is currently available"
+          - name: ITEM_TYPE
+            description: "Type of item (Veg, Non-Veg, Vegan, etc.)"
+          - name: EFF_START_DATE
+            description: "Effective start date"
+          - name: EFF_END_DATE
+            description: "Effective end date"
+          - name: STATUS
+            description: "Item status (active/inactive)"
+          - name: CREATED_AT
+            description: "Record creation timestamp"
+          - name: UPDATED_AT
+            description: "Record last update timestamp"
+          - name: BATCH_ID
+            description: "Batch identifier for data lineage"
+
+      - name: DIM_DELIVERY_AGENT
+        description: "Delivery agents who fulfill orders. Implements SCD Type 2."
+        columns:
+          - name: DELIVERY_AGENT_ID
+            description: "Primary key for delivery agent"
+            data_tests:
+              - unique
+              - not_null
+          - name: DELIVERY_AGENT_NAME
+            description: "Name of the delivery agent"
+          - name: PHONE
+            description: "Delivery agent phone number"
+          - name: VEHICLE_TYPE
+            description: "Type of vehicle used (Bike, Car, Bicycle, etc.)"
+          - name: LOCATION_ID
+            description: "Foreign key to DIM_LOCATION - agent's base location"
+          - name: IS_ACTIVE
+            description: "Whether agent is currently active"
+          - name: GENDER
+            description: "Delivery agent gender"
+          - name: RATING
+            description: "Average customer rating (0-5)"
+          - name: EFF_START_DATE
+            description: "Effective start date for SCD Type 2"
+          - name: EFF_END_DATE
+            description: "Effective end date for SCD Type 2"
+          - name: STATUS
+            description: "Record status (ACTIVE/INACTIVE)"
+          - name: BATCH_ID
+            description: "Batch identifier for data lineage"
+
+      - name: DIM_DATE
+        description: "Date dimension for time-based analytics and reporting"
+        columns:
+          - name: DIM_DATE_HK
+            description: "Surrogate key for date dimension (auto-increment)"
+            data_tests:
+              - unique
+              - not_null
+          - name: CALENDAR_DATE
+            description: "The actual calendar date"
+            data_tests:
+              - unique
+              - not_null
+          - name: YEAR
+            description: "Year (YYYY)"
+          - name: QUARTER
+            description: "Quarter of the year (1-4)"
+          - name: MONTH
+            description: "Month number (1-12)"
+          - name: WEEK
+            description: "Week of the year (1-53)"
+          - name: DAY_OF_YEAR
+            description: "Day of the year (1-365/366)"
+          - name: DAY_OF_WEEK
+            description: "Day of the week (1-7, 1=Sunday)"
+          - name: DAY_OF_THE_MONTH
+            description: "Day of the month (1-31)"
+          - name: DAY_NAME
+            description: "Name of the day (Monday, Tuesday, etc.)"
+
+      - name: FACT_ORDER_ITEM
+        description: "Fact table containing individual items in each order"
+        columns:
+          - name: ORDER_ITEM_ID
+            description: "Primary key for order item"
+            data_tests:
+              - unique
+              - not_null
+          - name: ORDER_ID
+            description: "Foreign key to order (from orders table)"
+            data_tests:
+              - not_null
+          - name: MENU_ID
+            description: "Foreign key to DIM_MENU"
+          - name: QUANTITY
+            description: "Quantity of this item ordered"
+          - name: PRICE
+            description: "Unit price at time of order"
+          - name: SUBTOTAL
+            description: "Total price for this line item (quantity * price)"
+          - name: ORDER_TIMESTAMP
+            description: "Timestamp when order was placed"
+          - name: BATCH_ID
+            description: "Batch identifier for data lineage"
+          - name: CREATED_AT
+            description: "Record creation timestamp"
+
+      - name: FACT_DELIVERY
+        description: "Fact table for delivery information with status tracking. Clustered by delivery date."
+        columns:
+          - name: DELIVERY_ID
+            description: "Primary key for delivery"
+            data_tests:
+              - unique
+              - not_null
+          - name: ORDER_ID
+            description: "Foreign key to order"
+            data_tests:
+              - not_null
+          - name: DELIVERY_AGENT_ID
+            description: "Foreign key to DIM_DELIVERY_AGENT"
+          - name: CUSTOMER_ADDRESS_ID
+            description: "Foreign key to DIM_CUSTOMER_ADDRESS"
+          - name: CURRENT_STATUS
+            description: "Current delivery status"
+          - name: INITIAL_STATUS
+            description: "Initial delivery status when created"
+          - name: ESTIMATED_TIME
+            description: "Estimated delivery time"
+          - name: DELIVERY_DATE
+            description: "Actual or scheduled delivery date"
+          - name: STATUS_UPDATED_AT
+            description: "Timestamp of last status update"
+          - name: BATCH_ID
+            description: "Batch identifier for data lineage"
+          - name: CREATED_AT
+            description: "Record creation timestamp"
+          - name: LOADED_AT
+            description: "Timestamp when record was loaded into warehouse"
+
+      - name: FACT_DELIVERY_STATUS_HISTORY
+        description: "Audit trail capturing all delivery status changes over time"
+        columns:
+          - name: STATUS_HISTORY_KEY
+            description: "Primary key for status history (auto-increment)"
+            data_tests:
+              - unique
+              - not_null
+          - name: DELIVERY_ID
+            description: "Foreign key to FACT_DELIVERY"
+          - name: OLD_STATUS
+            description: "Previous delivery status"
+          - name: NEW_STATUS
+            description: "New delivery status after change"
+          - name: STATUS_CHANGED_AT
+            description: "Timestamp when status changed"
+          - name: BATCH_ID
+            description: "Batch identifier for data lineage"
+
+      - name: FACT_ORDER_STATUS_HISTORY
+        description: "Audit trail for order status changes tracking all status transitions"
+        columns:
+          - name: STATUS_HISTORY_KEY
+            description: "Primary key for status history (auto-increment)"
+            data_tests:
+              - unique
+              - not_null
+          - name: ORDER_ID
+            description: "Foreign key to order (VARCHAR to match FACT_ORDER)"
+            data_tests:
+              - not_null
+          - name: OLD_STATUS
+            description: "Previous order status before change"
+          - name: NEW_STATUS
+            description: "New order status after change"
+            data_tests:
+              - not_null
+          - name: STATUS_CHANGED_AT
+            description: "Timestamp when status changed"
+            data_tests:
+              - not_null
+          - name: BATCH_ID
+            description: "Batch identifier for data lineage"
