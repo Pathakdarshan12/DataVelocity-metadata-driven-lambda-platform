@@ -2,7 +2,8 @@
 -- PROCEDURE 1: UNIVERSAL_STAGE_TO_BRONZE
 -- Purpose: Load data from Stage/Stream to Bronze for ANY entity
 -- =======================================================================================================================================
-CREATE OR REPLACE PROCEDURE COMMON.SP_UNIVERSAL_STAGE_TO_BRONZE(
+call SP_STAGE_TO_BRONZE('ORDER_STREAM', NULL);
+CREATE OR REPLACE PROCEDURE COMMON.SP_STAGE_TO_BRONZE(
     P_SOURCE_NAME VARCHAR,
     P_FILE_NAME VARCHAR DEFAULT NULL  -- NULL for stream sources
 )
@@ -145,7 +146,7 @@ $$;
 -- PROCEDURE 2: UNIVERSAL_BRONZE_TO_SILVER
 -- Purpose: Load data from Bronze to Silver for ANY entity with DQ validation P_SOURCE_NAME
 -- =======================================================================================================================================
-CREATE OR REPLACE PROCEDURE COMMON.SP_UNIVERSAL_BRONZE_TO_SILVER(
+CREATE OR REPLACE PROCEDURE COMMON.SP_BRONZE_TO_SILVER(
 P_SOURCE_NAME VARCHAR,
     P_INGEST_RUN_ID INTEGER,
     P_BATCH_ID VARCHAR
@@ -346,7 +347,7 @@ $$;
 -- Purpose: Load data from Silver to Gold with SCD2 support for ANY entity
 -- =======================================================================================================================================
 
-CREATE OR REPLACE PROCEDURE COMMON.SP_UNIVERSAL_SILVER_TO_GOLD(
+CREATE OR REPLACE PROCEDURE COMMON.SP_SILVER_TO_GOLD(
     P_SOURCE_NAME VARCHAR,
     P_BATCH_ID VARCHAR
 )
@@ -456,7 +457,9 @@ $$;
 -- =======================================================================================================================================
 -- MASTER ORCHESTRATION PROCEDURE
 -- =======================================================================================================================================
-CREATE OR REPLACE PROCEDURE COMMON.SP_UNIVERSAL_ETL_MASTER(
+CALL SP_ETL_MASTER('ORDER_BATCH', 'order_brz.csv');
+select * from gold.fact_order;
+CREATE OR REPLACE PROCEDURE COMMON.SP_ETL_MASTER(
     P_SOURCE_NAME VARCHAR,
     P_FILE_NAME   VARCHAR DEFAULT NULL
 )
@@ -478,7 +481,7 @@ BEGIN
     V_BATCH_ID   := 'BATCH_' || UUID_STRING();
 
     /* Phase 1: Stage → Bronze */
-    CALL COMMON.SP_UNIVERSAL_STAGE_TO_BRONZE(
+    CALL COMMON.SP_STAGE_TO_BRONZE(
         :P_SOURCE_NAME,
         :P_FILE_NAME
     )
@@ -495,7 +498,7 @@ BEGIN
     V_INGEST_RUN_ID := V_STB_RESULT:INGEST_RUN_ID::INTEGER;
 
     /* Phase 2: Bronze → Silver */
-    CALL COMMON.SP_UNIVERSAL_BRONZE_TO_SILVER(
+    CALL COMMON.SP_BRONZE_TO_SILVER(
         :P_SOURCE_NAME,
         :V_INGEST_RUN_ID,
         :V_BATCH_ID
@@ -511,7 +514,7 @@ BEGIN
     END IF;
 
     /* Phase 3: Silver → Gold */
-    CALL COMMON.SP_UNIVERSAL_SILVER_TO_GOLD(
+    CALL COMMON.SP_SILVER_TO_GOLD(
         :P_SOURCE_NAME,
         :V_BATCH_ID
     )
