@@ -5,10 +5,9 @@
     "tasks.max": "2",
     "topics": "orders-events",
 
-    "snowflake.url.name": "<SNOWFLAKE URL>",
+    "snowflake.url.name": "<Snowflake Account URL>",
     "snowflake.user.name": "KAFKA_CONNECT_USER",
     "snowflake.private.key": "<RSA PRIVATE KEY>",
-    "snowflake.role.name": "KAFKA_CONNECTOR_ROLE",
     "snowflake.database.name": "DATAVELOCITY",
     "snowflake.schema.name": "BRONZE",
 

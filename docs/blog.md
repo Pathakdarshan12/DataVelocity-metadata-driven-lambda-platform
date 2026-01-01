@@ -1,4 +1,4 @@
-# How I Built a Lambda Architecture That Actually Works in Production
+# I built a Lambda Architecture on Snowflake that unifies batch and streaming without duplicating transformation logic.
 
 > **💡 TL;DR:** I built a unified data platform that processes CSV batch loads AND real-time Kafka events through identical transformation logic. Same validation rules. Same SCD Type 2 procedures. Same quality gates. One codebase. Zero logic duplication.
 
@@ -35,7 +35,7 @@ DataVelocity is a unified data platform handling **food delivery transactions** 
 
 ### Layer 1: Dual Ingestion (Batch + Speed)
 
-![Duel Ingestion](https://www.snowflake.com/adobe/dynamicmedia/deliver/dm-aid--4a01d378-7f22-459d-a185-693ea0d1ec7d/screenshot-2023-03-02-at-9.20.53-am.png?quality=85&preferwebp=true)
+![Dual Ingestion](https://www.snowflake.com/adobe/dynamicmedia/deliver/dm-aid--4a01d378-7f22-459d-a185-693ea0d1ec7d/screenshot-2023-03-02-at-9.20.53-am.png?quality=85&preferwebp=true)
 
 
 **Batch path:** CSV files → S3 → Snowflake Stage → Bronze tables
